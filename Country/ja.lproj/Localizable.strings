@@ -1,0 +1,124 @@
+/* 
+  Localizable.strings
+  Country
+  
+  Created by AI Assistant on 2024/09/16.
+  
+  日本語ローカライゼーションファイル
+*/
+
+// MARK: - 主要機能
+"app_title" = "トイレ検索";
+"search_placeholder" = "場所を入力してください";
+"location_permission_required" = "位置情報の許可が必要です";
+"location_permission_description" = "設定で位置情報へのアクセスを許可してください\n位置機能を使用するために";
+"go_to_settings" = "設定へ移動";
+"no_toilets_found" = "トイレが見つかりません";
+"loading_toilets" = "トイレデータを読み込み中...";
+"locating" = "位置情報取得中...";
+"need_location_for_nearby" = "近くのトイレを表示するには位置情報が必要です";
+"press_location_button" = "位置ボタンを押すか位置情報の許可をしてください";
+
+// MARK: - 設定ページ
+"settings" = "設定";
+"location_permission" = "位置情報の許可";
+"location_permission_detail" = "近くのトイレを表示するためにアプリが位置情報にアクセスすることを許可";
+"notification_settings" = "通知設定";
+"notification_detail" = "トイレ関連の通知と更新を受信";
+"about_app" = "アプリについて";
+"version" = "バージョン 1.0.0";
+"done" = "完了";
+
+// MARK: - トイレタイプ
+"toilet_type_female" = "女性用トイレ";
+"toilet_type_male" = "男性用トイレ";
+"toilet_type_family" = "ファミリートイレ";
+"toilet_type_accessible" = "バリアフリートイレ";
+"toilet_type_universal" = "ユニバーサルトイレ";
+"toilet_type_mixed" = "混合トイレ";
+"toilet_type_gender_friendly" = "ジェンダーフレンドリートイレ";
+
+// MARK: - トイレグレード
+"grade_excellent" = "特優級";
+"grade_good" = "優級";
+"grade_fair" = "良級";
+"grade_normal" = "普通級";
+"grade_poor" = "改善待ち";
+
+// MARK: - 場所タイプ
+"venue_type_commercial" = "商業施設";
+"venue_type_transportation" = "交通機関";
+"venue_type_tourism" = "観光地";
+"venue_type_religious" = "宗教施設";
+"venue_type_government" = "政府機関";
+"venue_type_education" = "教育機関";
+"venue_type_healthcare" = "医療機関";
+
+// MARK: - 場所詳細
+"toilet_count" = "%d個";
+"floor_count" = "%d階";
+"calculating" = "計算中...";
+"select_floor" = "階を選択";
+"available_types" = "利用可能なトイレタイプ";
+"details" = "詳細";
+"address" = "住所";
+"diaper_station" = "おむつ交換台";
+"venue_type" = "場所タイプ";
+"administration" = "管理機関";
+
+// MARK: - マップ機能
+"map_app_selection" = "マップアプリを選択";
+"map_selection_description" = "ナビゲーションに使用するマップアプリを選択してください";
+"cancel" = "キャンセル";
+
+// MARK: - 時間関連
+"minutes" = "%d分";
+"hours" = "%d時間";
+"hours_minutes" = "%d時間%d分";
+"days" = "%d日";
+"days_hours" = "%d日%d時間";
+"days_hours_minutes" = "%d日%d時間%d分";
+
+// MARK: - エラーメッセージ
+"location_timeout" = "位置情報取得タイムアウト、ネットワーク接続を確認してください";
+"location_failed" = "位置情報取得失敗";
+"data_load_failed" = "トイレデータの読み込みに失敗しました";
+"file_not_found" = "toilet.jsonファイルが見つかりません";
+
+// MARK: - デバッグメッセージ
+"location_manager_init" = "LocationManager初期化、権限状態：%d";
+"request_permission_on_init" = "初期化時に権限を要求";
+"requesting_location_permission" = "位置情報の許可を要求中...";
+"current_permission_status" = "現在の権限状態：%d";
+"called_request_when_in_use" = "requestWhenInUseAuthorizationを呼び出し";
+"permission_status_after_1s" = "1秒後の権限状態：%d";
+"insufficient_permission" = "権限不足、権限を要求中";
+"start_location_process" = "位置情報取得プロセス開始";
+"trying_quick_location" = "クイック位置情報取得を試行中...";
+"quick_location_failed" = "クイック位置情報取得失敗、継続位置情報取得を開始...";
+"location_timeout_stop" = "位置情報取得タイムアウト、停止";
+"start_quick_location" = "クイック位置情報取得プロセス開始";
+"quick_location_timeout" = "クイック位置情報取得タイムアウト、停止";
+"location_success" = "位置情報取得成功：緯度 %f、経度 %f";
+"location_failed_error" = "位置情報取得失敗：%@";
+"permission_status_changed" = "権限状態変更：%d";
+"permission_denied" = "権限拒否";
+"permission_restricted" = "権限制限";
+"permission_granted_start_location" = "権限許可、位置情報取得開始";
+"insufficient_permission_update" = "権限不足、近くのトイレを更新できません";
+"no_location_info" = "位置情報なし、近くのトイレを更新できません";
+"updating_nearby_toilets" = "近くのトイレを更新中、位置：%f、%f";
+"found_nearby_locations" = "%d個の近くの場所を発見";
+
+// MARK: - データ読み込み
+"successfully_loaded_toilets" = "%d件のトイレデータを正常に読み込み";
+"grouped_locations" = "グループ化後：%d個の場所";
+"multi_floor_locations" = "多階建て場所：%d個";
+"data_load_error" = "データ読み込みエラー：%@";
+"using_cache" = "キャッシュ使用：%d個のトイレを発見";
+"map_region_load" = "マップ領域読み込み：%d個のトイレを発見（ズームレベル：%d）";
+
+// MARK: - マップ切り替え
+"switch_to_standard_map" = "標準マップに切り替え";
+"switch_to_satellite_map" = "衛星マップに切り替え";
+"loading_toilet_data" = "トイレデータを読み込み中...";

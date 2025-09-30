@@ -1,0 +1,124 @@
+/* 
+  Localizable.strings
+  Country
+  
+  Created by AI Assistant on 2024/09/16.
+  
+  English localization file
+*/
+
+// MARK: - Main Features
+"app_title" = "Find Toilet";
+"search_placeholder" = "Enter your location";
+"location_permission_required" = "Location Permission Required";
+"location_permission_description" = "Please allow location access in settings\nto use location features";
+"go_to_settings" = "Go to Settings";
+"no_toilets_found" = "No toilets found";
+"loading_toilets" = "Loading toilet data...";
+"locating" = "Locating...";
+"need_location_for_nearby" = "Location required to show nearby toilets";
+"press_location_button" = "Please press the location button or allow location permission";
+
+// MARK: - Settings Page
+"settings" = "Settings";
+"location_permission" = "Location Permission";
+"location_permission_detail" = "Allow the app to access your location to show nearby toilets";
+"notification_settings" = "Notification Settings";
+"notification_detail" = "Receive toilet-related notifications and updates";
+"about_app" = "About App";
+"version" = "Version 1.0.0";
+"done" = "Done";
+
+// MARK: - Toilet Types
+"toilet_type_female" = "Female Toilet";
+"toilet_type_male" = "Male Toilet";
+"toilet_type_family" = "Family Toilet";
+"toilet_type_accessible" = "Accessible Toilet";
+"toilet_type_universal" = "Universal Toilet";
+"toilet_type_mixed" = "Mixed Toilet";
+"toilet_type_gender_friendly" = "Gender-Friendly Toilet";
+
+// MARK: - Toilet Grades
+"grade_excellent" = "Excellent";
+"grade_good" = "Good";
+"grade_fair" = "Fair";
+"grade_normal" = "Normal";
+"grade_poor" = "Needs Improvement";
+
+// MARK: - Venue Types
+"venue_type_commercial" = "Commercial Venue";
+"venue_type_transportation" = "Transportation Hub";
+"venue_type_tourism" = "Tourist Attraction";
+"venue_type_religious" = "Religious Venue";
+"venue_type_government" = "Government Building";
+"venue_type_education" = "Educational Institution";
+"venue_type_healthcare" = "Healthcare Facility";
+
+// MARK: - Location Details
+"toilet_count" = "%d toilets";
+"floor_count" = "%d floors";
+"calculating" = "Calculating...";
+"select_floor" = "Select Floor";
+"available_types" = "Available Toilet Types";
+"details" = "Details";
+"address" = "Address";
+"diaper_station" = "Diaper Station";
+"venue_type" = "Venue Type";
+"administration" = "Administration";
+
+// MARK: - Map Features
+"map_app_selection" = "Select Map App";
+"map_selection_description" = "Please select a map app for navigation";
+"cancel" = "Cancel";
+
+// MARK: - Time Related
+"minutes" = "%d minutes";
+"hours" = "%d hours";
+"hours_minutes" = "%d hours %d minutes";
+"days" = "%d days";
+"days_hours" = "%d days %d hours";
+"days_hours_minutes" = "%d days %d hours %d minutes";
+
+// MARK: - Error Messages
+"location_timeout" = "Location timeout, please check network connection";
+"location_failed" = "Location failed";
+"data_load_failed" = "Failed to load toilet data";
+"file_not_found" = "toilet.json file not found";
+
+// MARK: - Debug Messages
+"location_manager_init" = "LocationManager initialized, permission status: %d";
+"request_permission_on_init" = "Requesting permission on initialization";
+"requesting_location_permission" = "Requesting location permission...";
+"current_permission_status" = "Current permission status: %d";
+"called_request_when_in_use" = "Called requestWhenInUseAuthorization";
+"permission_status_after_1s" = "Permission status after 1s: %d";
+"insufficient_permission" = "Insufficient permission, requesting permission";
+"start_location_process" = "Starting location process";
+"trying_quick_location" = "Trying quick location...";
+"quick_location_failed" = "Quick location failed, starting continuous location...";
+"location_timeout_stop" = "Location timeout, stopping location";
+"start_quick_location" = "Starting quick location process";
+"quick_location_timeout" = "Quick location timeout, stopping location";
+"location_success" = "Location success: latitude %f, longitude %f";
+"location_failed_error" = "Location failed: %@";
+"permission_status_changed" = "Permission status changed: %d";
+"permission_denied" = "Permission denied";
+"permission_restricted" = "Permission restricted";
+"permission_granted_start_location" = "Permission granted, starting location";
+"insufficient_permission_update" = "Insufficient permission, cannot update nearby toilets";
+"no_location_info" = "No location info, cannot update nearby toilets";
+"updating_nearby_toilets" = "Updating nearby toilets, location: %f, %f";
+"found_nearby_locations" = "Found %d nearby locations";
+
+// MARK: - Data Loading
+"successfully_loaded_toilets" = "Successfully loaded %d toilet records";
+"grouped_locations" = "Grouped: %d locations";
+"multi_floor_locations" = "Multi-floor locations: %d";
+"data_load_error" = "Data load error: %@";
+"using_cache" = "Using cache: found %d toilets";
+"map_region_load" = "Map region load: found %d toilets (zoom level: %d)";
+
+// MARK: - Map Switching
+"switch_to_standard_map" = "Switch to standard map";
+"switch_to_satellite_map" = "Switch to satellite map";
+"loading_toilet_data" = "Loading toilet data...";

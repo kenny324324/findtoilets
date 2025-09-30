@@ -1,57 +1,75 @@
 import SwiftUI
+import CoreLocation
+import UIKit
 
 struct CountryView: View {
     @Binding var sheetPresented: Bool
     @Binding var selectedDetent: PresentationDetent
     @State private var searchText: String = ""
-    @State private var suggestions: [ToiletInfo] = [] // 儲存建議公廁資訊
+    @State private var suggestions: [ToiletLocation] = [] // 儲存建議地點資訊
     @State private var selectedToilet: ToiletInfo?   // 儲存選中的公廁
     @FocusState private var isSearchFieldFocused: Bool // 控制鍵盤焦點
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
+    @State private var nearbyLocations: [ToiletLocation] = [] // 緩存附近地點
+    @State private var nearbyLocationsWithDistance: [(ToiletLocation, Int)] = [] // 緩存帶距離的附近地點
+    @ObservedObject var locationManager: LocationManager // 使用傳入的 LocationManager
+    @StateObject private var toiletDataManager = ToiletDataManager() // 公廁資料管理器
+    @Binding var mapToilets: [ToiletInfo] // 要在地圖上顯示的公廁
+    @State private var showingSettings = false // 控制設定 sheet 顯示
+    @State private var selectedToiletForDetail: ToiletInfo? = nil // 選中要顯示詳細資訊的公廁
+    @State private var showingToiletDetail = false // 控制是否顯示公廁詳細頁面
+    @Binding var selectedToiletFromMap: ToiletInfo? // 從地圖選中的公廁
+    @Binding var selectedLocationFromMap: ToiletLocation? // 從地圖選中的地點
+    @State private var selectedLocationForDetail: ToiletLocation? = nil // 選中要顯示詳細資訊的地點
+    @State private var showingLocationDetail = false // 控制是否顯示地點詳細頁面
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // 固定的標題和搜尋區域
             VStack(spacing: 16) {
-                // 標題 + 關閉按鈕
+                // 標題 + 設定按鈕
                 HStack {
-                    Text("找廁所")
-                        .font(.title.weight(.semibold))
-                        .fontDesign(.rounded)
-                        .bold()
+                    Text(LocalizedStrings.appTitle.localized)
+                        .font(.titleRounded(.bold))
+                    
                     Spacer()
-                    /*
+                    
                     Button(action: {
-                        withAnimation { sheetPresented = false }
+                        showingSettings = true
                     }) {
-                        Image(systemName: "xmark")
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 15))
                             .foregroundColor(.gray)
-                            .padding()
+                            .frame(width: 30, height: 30)
                             .background(Circle().fill(Color.gray.opacity(0.2)))
-                    }*/
+                    }
                 }
 
-                // 搜尋框
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
-                        .font(.body.weight(.bold))
-                        .fontDesign(.rounded)
-                    TextField("輸入您的位置", text: $searchText)
-                        .focused($isSearchFieldFocused)
-                            .onChange(of: searchText) { query in
-                                // 暫時使用示範資料
-                                loadDemoSuggestions(for: query)
-                            }
-                        .font(.body.weight(.bold))
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .fontDesign(.rounded)
+                // 搜尋框 + 定位按鈕
+                HStack(spacing: 12) {
+                    // 搜尋框
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                            .font(.bodyRounded(.bold))
+                        TextField(LocalizedStrings.searchPlaceholder.localized, text: $searchText)
+                            .font(.bodyRounded())
+                            .focused($isSearchFieldFocused)
+                                .onChange(of: searchText) { query in
+                                    // 用戶開始搜尋時，停止定位
+                                    locationManager.stopLocationUpdates()
+                                    // 使用真實資料搜尋
+                                    loadSuggestions(for: query)
+                                }
+                            .font(.bodyRounded(.bold))
+                            .textFieldStyle(PlainTextFieldStyle())
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(18)
                 }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(18)
                 }
                 .padding(.horizontal, 5)
                 .padding(.top)
@@ -68,66 +86,271 @@ struct CountryView: View {
                 // 可捲動的內容區域 - 使用 GeometryReader 確保獨立捲動
                 GeometryReader { geometry in
                     if isLoading {
-                        ProgressView()
+                        CustomLoadingView()
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
+                        VStack(spacing: 20) {
+                            Spacer()
+                            Image(systemName: "location.slash")
+                                .font(.customRounded(50))
+                                .foregroundColor(.gray)
+                            Text(LocalizedStrings.locationPermissionRequired.localized)
+                                .font(.headlineRounded())
+                                .padding(.top)
+                            Text(LocalizedStrings.locationPermissionDescription.localized)
+                                .font(.subheadlineRounded())
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                            
+                            Button(LocalizedStrings.goToSettings.localized) {
+                                if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(settingsUrl)
+                                }
+                            }
                             .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                            
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if !suggestions.isEmpty {
-                        List(suggestions, id: \.id) { suggestion in
-                            NavigationLink(destination: ToiletDetailView(toilet: suggestion)) {
-                                ToiletRowView(toilet: suggestion, distance: getDemoDistance(for: suggestion))
+                        ScrollView {
+                            LazyVStack(spacing: 0) {
+                                ForEach(suggestions, id: \.id) { location in
+                                    Button(action: {
+                                        selectedLocationForDetail = location
+                                        showingLocationDetail = true
+                                    }) {
+                                        LocationRowView(location: location, distance: getRealDistanceForLocation(location))
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
                             }
                         }
-                        .listStyle(.plain)
+                        .onAppear {
+                            mapToilets = suggestions.flatMap { $0.allToilets }
+                        }
                     } else if !searchText.isEmpty {
                         VStack {
                             Spacer()
-                            Text("找不到相關公廁")
+                            Text(LocalizedStrings.noToiletsFound.localized)
                                 .foregroundColor(.gray)
-                                .font(.body)
+                                .font(.bodyRounded())
                             Spacer()
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         // 預設顯示附近公廁
-                        List(getDemoNearbyToilets(), id: \.id) { toilet in
-                            NavigationLink(destination: ToiletDetailView(toilet: toilet)) {
-                                ToiletRowView(toilet: toilet, distance: getDemoDistance(for: toilet))
+                        if toiletDataManager.isLoading {
+                            VStack {
+                                Spacer()
+                                ProgressView(LocalizedStrings.loadingToilets.localized)
+                                    .font(.subheadlineRounded())
+                                    .foregroundColor(.gray)
+                                Spacer()
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            if locationManager.isLocating {
+                                VStack {
+                                    Spacer()
+                                    ProgressView(LocalizedStrings.locating.localized)
+                                        .font(.subheadlineRounded())
+                                        .foregroundColor(.gray)
+                                    Spacer()
+                                }
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            } else {
+                                if nearbyLocations.isEmpty {
+                                    VStack {
+                                        Spacer()
+                                        Image(systemName: "location.slash")
+                                            .font(.customRounded(50))
+                                            .foregroundColor(.gray)
+                                        Text(LocalizedStrings.needLocationForNearby.localized)
+                                            .font(.headlineRounded())
+                                            .padding(.top)
+                                        Text(LocalizedStrings.pressLocationButton.localized)
+                                            .font(.subheadlineRounded())
+                                            .foregroundColor(.gray)
+                                            .multilineTextAlignment(.center)
+                                        Spacer()
+                                    }
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .onAppear {
+                                        mapToilets = []
+                                    }
+                                } else {
+                                    ScrollView {
+                                        LazyVStack(spacing: 0) {
+                                            ForEach(nearbyLocationsWithDistance, id: \.0.id) { locationWithDistance in
+                                                Button(action: {
+                                                    selectedLocationForDetail = locationWithDistance.0
+                                                    showingLocationDetail = true
+                                                }) {
+                                                    LocationRowView(location: locationWithDistance.0, distance: locationWithDistance.1)
+                                                }
+                                                .buttonStyle(PlainButtonStyle())
+                                            }
+                                        }
+                                    }
+                                    .onAppear {
+                                        mapToilets = nearbyLocations.flatMap { $0.allToilets }
+                                    }
+                                }
                             }
                         }
-                        .listStyle(.plain)
                     }
                 }
             }
             .navigationBarHidden(true)
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: locationManager.location) { _ in
+                // 位置變化時更新附近公廁緩存
+                updateNearbyToilets()
+            }
+            .onChange(of: locationManager.authorizationStatus) { status in
+                // 權限狀態變更時更新附近公廁緩存
+                print("權限狀態變更：\(status.rawValue)")
+                if status == .authorizedWhenInUse || status == .authorizedAlways {
+                    // 權限獲得後，立即更新附近公廁
+                    updateNearbyToilets()
+                } else if status == .denied || status == .restricted {
+                    // 權限被拒絕時，清空附近公廁
+                    nearbyLocations = []
+                    nearbyLocationsWithDistance = []
+                }
+            }
+            .onAppear {
+                // 初始載入時更新附近公廁緩存
+                updateNearbyToilets()
+            }
+            .onChange(of: selectedToiletFromMap) { newToilet in
+                // 當從地圖選中公廁時，自動跳轉到詳細頁面
+                if let toilet = newToilet {
+                    selectedToiletForDetail = toilet
+                    showingToiletDetail = true
+                    // 清空地圖選中的公廁，避免重複觸發
+                    selectedToiletFromMap = nil
+                }
+            }
+            .onChange(of: selectedLocationFromMap) { newLocation in
+                // 當從地圖選中地點時，自動跳轉到地點詳細頁面
+                if let location = newLocation {
+                    selectedLocationForDetail = location
+                    showingLocationDetail = true
+                    // 清空地圖選中的地點，避免重複觸發
+                    selectedLocationFromMap = nil
+                }
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+                    .interactiveDismissDisabled(true)
+            }
+            .background(
+                // 使用隱藏的 NavigationLink 來處理程式化的導航
+                Group {
+                    // 廁所詳情
+                    NavigationLink(
+                        destination: selectedToiletForDetail.map { ToiletDetailView(toilet: $0) },
+                        isActive: $showingToiletDetail
+                    ) {
+                        EmptyView()
+                    }
+                    .hidden()
+                    
+                    // 地點詳情
+                    NavigationLink(
+                        destination: selectedLocationForDetail.map { LocationDetailView(location: $0) },
+                        isActive: $showingLocationDetail
+                    ) {
+                        EmptyView()
+                    }
+                    .hidden()
+                }
+            )
         }
     }
 
-    // 示範搜尋功能
-    private func loadDemoSuggestions(for query: String) {
-        guard !query.isEmpty else {
+    // 搜尋功能
+    private func loadSuggestions(for query: String) {
+        if query.isEmpty {
+            // 清空搜尋文字時，清空建議並重新顯示附近地點
             suggestions = []
+            mapToilets = nearbyLocations.flatMap { $0.allToilets }
             return
         }
         
-        // 模擬載入狀態
+        // 顯示載入狀態
         isLoading = true
         
-        // 延遲模擬網路請求
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // 使用真實資料搜尋，至少顯示兩秒
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             isLoading = false
             
-            // 示範搜尋結果
-            let demoToilets = getDemoToilets()
-            suggestions = demoToilets.filter { toilet in
-                toilet.name.lowercased().contains(query.lowercased()) ||
-                toilet.address.lowercased().contains(query.lowercased()) ||
-                toilet.type2.lowercased().contains(query.lowercased())
+            // 使用 ToiletDataManager 搜尋地點
+            let searchResults = toiletDataManager.searchLocations(query: query)
+            
+            // 按距離排序搜尋結果（由小到大）
+            if locationManager.location != nil {
+                suggestions = searchResults.sorted { first, second in
+                    let firstDistance = getRealDistanceForLocation(first)
+                    let secondDistance = getRealDistanceForLocation(second)
+                    return firstDistance < secondDistance
+                }
+            } else {
+                // 如果沒有位置資訊，保持原始順序
+                suggestions = searchResults
             }
+            
+            mapToilets = suggestions.flatMap { $0.allToilets }
         }
     }
     
-    // 示範距離計算
+    // 定位到目前位置
+    private func locateCurrentPosition() {
+        // 清空搜尋文字，顯示附近地點
+        searchText = ""
+        suggestions = []
+        isSearchFieldFocused = false
+        
+        // 檢查權限狀態
+        switch locationManager.authorizationStatus {
+        case .notDetermined:
+            // 首次使用，請求權限
+            locationManager.requestLocationPermission()
+        case .denied, .restricted:
+            // 權限被拒絕，顯示提示
+            break
+        case .authorizedWhenInUse, .authorizedAlways:
+            // 有權限，開始定位
+            locationManager.getCurrentLocation()
+        @unknown default:
+            break
+        }
+    }
+    
+    
+    // 計算真實距離（已優化，使用緩存）
+    private func getRealDistance(for toilet: ToiletInfo) -> Int {
+        // 先嘗試從緩存中找距離
+        if let cachedDistance = nearbyLocationsWithDistance.flatMap({ locationWithDistance in
+            locationWithDistance.0.allToilets.map { ($0, locationWithDistance.1) }
+        }).first(where: { $0.0.id == toilet.id })?.1 {
+            return cachedDistance
+        }
+        
+        // 如果緩存中沒有，則計算
+        guard let userLocation = locationManager.location else {
+            return 999999 // 沒有位置時返回很大的數字
+        }
+        
+        return toiletDataManager.calculateDistance(from: userLocation, to: toilet)
+    }
+    
+    // 示範距離計算（當沒有真實位置時使用）
     private func getDemoDistance(for toilet: ToiletInfo) -> Int {
         switch toilet.number {
         case "DEMO001": return 150  // 台北101最近
@@ -342,41 +565,267 @@ struct CountryView: View {
                 diaper: "0"
             )
         ].sorted { first, second in
-            let firstDistance = getDemoDistance(for: first)
-            let secondDistance = getDemoDistance(for: second)
+            let firstDistance = getRealDistance(for: first)
+            let secondDistance = getRealDistance(for: second)
             return firstDistance < secondDistance
         }
     }
     
-    // 示範附近公廁
-    private func getDemoNearbyToilets() -> [ToiletInfo] {
-        return getDemoToilets()
+    // 更新附近地點緩存（優化版本）
+    private func updateNearbyToilets() {
+        // 檢查權限狀態
+        guard locationManager.authorizationStatus == .authorizedWhenInUse || 
+              locationManager.authorizationStatus == .authorizedAlways else {
+            print("權限不足，無法更新附近公廁")
+            nearbyLocations = []
+            nearbyLocationsWithDistance = []
+            return
+        }
+        
+        guard let userLocation = locationManager.location else {
+            print("沒有位置資訊，無法更新附近公廁")
+            nearbyLocations = []
+            nearbyLocationsWithDistance = []
+            return
+        }
+        
+        print("更新附近公廁，位置：\(userLocation.coordinate.latitude), \(userLocation.coordinate.longitude)")
+        
+        // 使用 ToiletDataManager 的優化版本，一次計算得到地點和距離
+        nearbyLocationsWithDistance = toiletDataManager.findNearbyLocationsWithDistance(userLocation: userLocation, radius: 1000)
+        nearbyLocations = nearbyLocationsWithDistance.map { $0.0 }
+        
+        print("找到 \(nearbyLocations.count) 個附近地點")
+    }
+    
+    // 取得附近地點
+    private func getNearbyLocations() -> [ToiletLocation] {
+        return nearbyLocations
+    }
+    
+    // 計算地點的距離
+    private func getRealDistanceForLocation(_ location: ToiletLocation) -> Int {
+        guard let userLocation = locationManager.location else {
+            return 999999 // 沒有位置時返回很大的數字
+        }
+        
+        // 使用地點的第一個廁所來計算距離
+        guard let firstToilet = location.allToilets.first else {
+            return 999999
+        }
+        
+        return toiletDataManager.calculateDistance(from: userLocation, to: firstToilet)
+    }
+    
+    // 格式化距離顯示
+    static func formatDistance(_ distance: Int) -> String {
+        if distance >= 1000 {
+            let kilometers = Double(distance) / 1000.0
+            if kilometers == Double(Int(kilometers)) {
+                // 整數公里
+                return "\(Int(kilometers))km"
+            } else {
+                // 小數公里，保留一位小數
+                return String(format: "%.1fkm", kilometers)
+            }
+        } else {
+            return "\(distance)m"
+        }
     }
 }
 
-// 廁所列表項目視圖
+// 地點列表項目視圖
+struct LocationRowView: View {
+    let location: ToiletLocation
+    let distance: Int
+    
+    // 預計算的屬性
+    private let cleanName: String
+    private let starCount: Int
+    private let distanceTextColor: Color
+    private let distanceBackgroundColor: Color
+    private let availableTypes: [String]
+    
+    init(location: ToiletLocation, distance: Int) {
+        self.location = location
+        self.distance = distance
+        
+        // 預計算所有屬性
+        self.cleanName = Self.getCleanLocationName(location.name)
+        self.starCount = Self.getStarCount(for: location)
+        self.distanceTextColor = Self.getDistanceTextColor(for: distance)
+        self.distanceBackgroundColor = Self.getDistanceBackgroundColor(for: distance)
+        self.availableTypes = Array(location.availableTypes)
+    }
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // 左邊的地點圖示
+            Image(systemName: location.hasMultipleFloors ? "building.2.fill" : "toilet")
+                .font(.title3Rounded())
+                .foregroundColor(location.hasMultipleFloors ? .orange : .blue)
+                .frame(width: 24, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill((location.hasMultipleFloors ? Color.orange : Color.blue).opacity(0.2))
+                        .frame(width: 40, height: 40)
+                )
+            
+            // 中間的資訊
+            VStack(alignment: .leading, spacing: 4) {
+                // 地點名稱
+                Text(location.name)
+                    .font(.headlineRounded(.semibold))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                
+                // 評分（只顯示實心星星，不顯示空星星）
+                if starCount > 0 {
+                    HStack(spacing: 2) {
+                        ForEach(0..<starCount, id: \.self) { _ in
+                            Image(systemName: "star.fill")
+                                .font(.captionRounded(.medium))
+                                .foregroundColor(.yellow)
+                        }
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // 右邊的距離和箭頭
+            HStack(spacing: 8) {
+                // 距離
+                Text(CountryView.formatDistance(distance))
+                    .font(.subheadlineRounded(.semibold))
+                    .foregroundColor(distanceBackgroundColor) // 使用底色100%作為文字顏色
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(distanceBackgroundColor.opacity(0.2))
+                    )
+                
+                // 箭頭
+                Image(systemName: "chevron.right")
+                    .font(.captionRounded())
+                    .foregroundColor(.gray)
+            }
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 20)
+        .background(Color(UIColor.systemBackground))
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color(UIColor.separator)),
+            alignment: .bottom
+        )
+    }
+    
+    // 清理地點名稱（移除廁所類型及其前面的 -）
+    private static func getCleanLocationName(_ name: String) -> String {
+        let toiletTypes = ["-女廁", "-男廁", "-親子廁所", "-無障礙廁所", "-通用廁所", "-混合廁所", "-性別友善廁所"]
+        
+        var cleanName = name
+        for type in toiletTypes {
+            if cleanName.hasSuffix(type) {
+                cleanName = String(cleanName.dropLast(type.count))
+                break
+            }
+        }
+        return cleanName.trimmingCharacters(in: .whitespaces)
+    }
+    
+    // 計算星級評分（最多3顆星）
+    private static func getStarCount(for location: ToiletLocation) -> Int {
+        let allGrades = location.allToilets.map { $0.grade }
+        let highestGrade = allGrades.max { grade1, grade2 in
+            getGradeValue(grade1) < getGradeValue(grade2)
+        } ?? "普通級"
+        
+        // 限制最多3顆星
+        return min(getGradeValue(highestGrade), 3)
+    }
+    
+    // 將等級轉換為數字（最多3顆星）
+    private static func getGradeValue(_ grade: String) -> Int {
+        switch grade {
+        case "特優級": return 3
+        case "優級": return 2
+        case "良級": return 1
+        case "普通級": return 1
+        case "待改善": return 1
+        default: return 1
+        }
+    }
+    
+    
+    // 根據距離獲取文字顏色
+    private static func getDistanceTextColor(for distance: Int) -> Color {
+        switch distance {
+        case 0..<200: return .white
+        case 200..<500: return .white
+        case 500..<1000: return .white
+        default: return .white
+        }
+    }
+    
+    // 根據距離獲取背景顏色
+    private static func getDistanceBackgroundColor(for distance: Int) -> Color {
+        switch distance {
+        case 0..<200: return .green
+        case 200..<500: return .orange
+        case 500..<1000: return .red
+        default: return .gray
+        }
+    }
+}
+
+// 廁所列表項目視圖（優化版本）
 struct ToiletRowView: View {
     let toilet: ToiletInfo
     let distance: Int
     
+    // 預計算的屬性，避免重複計算
+    private let cleanName: String
+    private let typeIcon: String
+    private let typeColor: Color
+    private let type2Icon: String
+    private let starCount: Int
+    private let distanceTextColor: Color
+    private let distanceBackgroundColor: Color
+    
+    init(toilet: ToiletInfo, distance: Int) {
+        self.toilet = toilet
+        self.distance = distance
+        
+        // 預計算所有屬性
+        self.cleanName = Self.getCleanToiletName(toilet.name)
+        self.typeIcon = toilet.typeIcon
+        self.typeColor = toilet.typeColor
+        self.type2Icon = toilet.type2Icon
+        self.starCount = Self.getStarCount(for: toilet.grade)
+        self.distanceTextColor = Self.getDistanceTextColor(for: distance)
+        self.distanceBackgroundColor = Self.getDistanceBackgroundColor(for: distance)
+    }
+    
     var body: some View {
         HStack(spacing: 16) {
             // 左邊的廁所圖示
-            Image(systemName: toilet.typeIcon)
-                .font(.title3)
-                .foregroundColor(toilet.typeColor)
+            Image(systemName: typeIcon)
+                .font(.title3Rounded())
+                .foregroundColor(typeColor)
                 .frame(width: 50, height: 50)
-                .background(toilet.typeColor.opacity(0.2))
+                .background(typeColor.opacity(0.2))
                 .cornerRadius(10)
             
             // 中間 VStack
             VStack(alignment: .leading, spacing: 8) {
                 // 廁所名稱
-                Text(getCleanToiletName(toilet.name))
-                    .font(.headline)
-                    .fontWeight(.bold)
+                Text(cleanName)
+                    .font(.headlineRounded(.bold))
                     .foregroundColor(.primary)
-                    .fontDesign(.rounded)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -385,28 +834,28 @@ struct ToiletRowView: View {
                 HStack(spacing: 8) {
                     // 星星評分（固定最小寬度）
                     HStack(spacing: 1) {
-                        ForEach(0..<getStarCount(for: toilet.grade), id: \.self) { _ in
+                        ForEach(0..<starCount, id: \.self) { _ in
                             Image(systemName: "star.fill")
-                                .font(.caption2)
+                                .font(.caption2Rounded())
                                 .foregroundColor(.yellow)
                         }
-                        ForEach(0..<(3 - getStarCount(for: toilet.grade)), id: \.self) { _ in
+                        ForEach(0..<(3 - starCount), id: \.self) { _ in
                             Image(systemName: "star.fill")
-                                .font(.caption2)
+                                .font(.caption2Rounded())
                                 .foregroundColor(.gray.opacity(0.3))
                         }
                     }
                     .frame(width: 40, alignment: .leading)
                     
                     // 場所圖標（固定寬度）
-                    Image(systemName: toilet.type2Icon)
-                        .font(.caption2)
-                        .foregroundColor(toilet.type2Color)
+                    Image(systemName: type2Icon)
+                        .font(.caption2Rounded())
+                        .foregroundColor(.secondary)
                         .frame(width: 20, alignment: .center)
                     
                     // 類型膠囊（彈性寬度，優先級最高）
                     Text(toilet.type)
-                        .font(.caption2)
+                        .font(.caption2Rounded())
                         .foregroundColor(.gray)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
@@ -420,24 +869,31 @@ struct ToiletRowView: View {
             
             Spacer(minLength: 8)
             
-            // 右邊距離徽章
-            Text("\(distance)m")
-                .font(.subheadline)
-                .foregroundColor(getDistanceTextColor(for: distance))
-                .fontWeight(.semibold)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(getDistanceBackgroundColor(for: distance))
-                .cornerRadius(6)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+            // 右邊距離徽章和箭頭
+            HStack(spacing: 8) {
+                // 距離徽章
+                Text(CountryView.formatDistance(distance))
+                    .font(.subheadlineRounded(.semibold))
+                    .foregroundColor(distanceTextColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(distanceBackgroundColor)
+                    .cornerRadius(6)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                
+                // 箭頭
+                Image(systemName: "chevron.right")
+                    .font(.captionRounded())
+                    .foregroundColor(.gray)
+            }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 20)  // 增加左右 margin
         .padding(.vertical, 12)
     }
     
     // 清理廁所名稱，移除類型後綴
-    private func getCleanToiletName(_ name: String) -> String {
+    private static func getCleanToiletName(_ name: String) -> String {
         let suffixes = ["-女廁", "-男廁", "-親子廁所", "-無障礙廁所", "-通用廁所"]
         var cleanName = name
         for suffix in suffixes {
@@ -450,7 +906,7 @@ struct ToiletRowView: View {
     }
     
     // 根據等級返回星級數量
-    private func getStarCount(for grade: String) -> Int {
+    private static func getStarCount(for grade: String) -> Int {
         switch grade {
         case "特優級":
             return 3
@@ -466,7 +922,7 @@ struct ToiletRowView: View {
     }
     
     // 根據距離返回文字顏色
-    private func getDistanceTextColor(for distance: Int) -> Color {
+    private static func getDistanceTextColor(for distance: Int) -> Color {
         if distance <= 200 {
             return .green
         } else if distance <= 500 {
@@ -477,7 +933,7 @@ struct ToiletRowView: View {
     }
     
     // 根據距離返回背景顏色
-    private func getDistanceBackgroundColor(for distance: Int) -> Color {
+    private static func getDistanceBackgroundColor(for distance: Int) -> Color {
         if distance <= 200 {
             return Color.green.opacity(0.2)
         } else if distance <= 500 {
@@ -486,8 +942,186 @@ struct ToiletRowView: View {
             return Color.gray.opacity(0.2)
         }
     }
+    
+    // 廁所類型本地化
+    private func getLocalizedToiletType(_ type: String) -> String {
+        let currentLanguage = Locale.current.languageCode ?? "zh"
+        
+        if currentLanguage == "zh" {
+            return type
+        } else {
+            // 非中文語言，使用本地化字串
+            switch type {
+            case "女廁所":
+                return LocalizedStrings.toiletTypeFemale.localized
+            case "男廁所":
+                return LocalizedStrings.toiletTypeMale.localized
+            case "親子廁所":
+                return LocalizedStrings.toiletTypeFamily.localized
+            case "無障礙廁所":
+                return LocalizedStrings.toiletTypeAccessible.localized
+            case "混合廁所":
+                return LocalizedStrings.toiletTypeMixed.localized
+            case "性別友善廁所":
+                return LocalizedStrings.toiletTypeGenderFriendly.localized
+            default:
+                return type
+            }
+        }
+    }
+}
+
+// 設定視圖
+struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                // 設定內容區域
+                VStack(spacing: 16) {
+                    // 位置權限設定
+                    HStack {
+                        Image(systemName: "location.fill")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                            .frame(width: 30)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(LocalizedStrings.locationPermission.localized)
+                                .font(.headline)
+                            Text(LocalizedStrings.locationPermissionDetail.localized)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color(UIColor.systemGray6))
+                    .cornerRadius(12)
+                    
+                    // 通知設定
+                    HStack {
+                        Image(systemName: "bell.fill")
+                            .font(.title2)
+                            .foregroundColor(.orange)
+                            .frame(width: 30)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(LocalizedStrings.notificationSettings.localized)
+                                .font(.headline)
+                            Text(LocalizedStrings.notificationDetail.localized)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color(UIColor.systemGray6))
+                    .cornerRadius(12)
+                    
+                    // 關於應用程式
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.green)
+                            .frame(width: 30)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(LocalizedStrings.aboutApp.localized)
+                                .font(.headline)
+                            Text(LocalizedStrings.version.localized)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color(UIColor.systemGray6))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .navigationTitle(LocalizedStrings.settings.localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(LocalizedStrings.done.localized) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
 }
 
 #Preview {
-    CountryView(sheetPresented: .constant(true), selectedDetent: .constant(.medium))
+    CountryView(
+        sheetPresented: .constant(true), 
+        selectedDetent: .constant(.medium), 
+        locationManager: LocationManager(), 
+        mapToilets: .constant([]), 
+    selectedToiletFromMap: .constant(nil), 
+    selectedLocationFromMap: .constant(nil)
+)
+}
+
+// MARK: - Custom Loading View
+struct CustomLoadingView: View {
+    @State private var isAnimating = false
+    
+    var body: some View {
+        VStack {
+            Spacer()
+            
+            // 簡化的脈衝動畫（淺灰色，縮小尺寸）
+            ZStack {
+                // 外層脈衝圈
+                Circle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 50, height: 50)
+                    .scaleEffect(isAnimating ? 1.3 : 0.8)
+                    .opacity(isAnimating ? 0.0 : 0.6)
+                    .animation(
+                        Animation.easeInOut(duration: 1.2)
+                            .repeatForever(autoreverses: false),
+                        value: isAnimating
+                    )
+                
+                // 中層脈衝圈
+                Circle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 35, height: 35)
+                    .scaleEffect(isAnimating ? 1.2 : 0.9)
+                    .opacity(isAnimating ? 0.0 : 0.5)
+                    .animation(
+                        Animation.easeInOut(duration: 1.2)
+                            .repeatForever(autoreverses: false)
+                            .delay(0.2),
+                        value: isAnimating
+                    )
+                
+                // 內層核心圓圈
+                Circle()
+                    .fill(Color.gray)
+                    .frame(width: 25, height: 25)
+                    .scaleEffect(isAnimating ? 1.1 : 0.9)
+                    .animation(
+                        Animation.easeInOut(duration: 0.8)
+                            .repeatForever(autoreverses: true),
+                        value: isAnimating
+                    )
+            }
+            
+            Spacer()
+        }
+        .onAppear {
+            isAnimating = true
+        }
+    }
 }

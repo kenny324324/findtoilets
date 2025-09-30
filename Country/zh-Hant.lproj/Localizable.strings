@@ -1,0 +1,124 @@
+/* 
+  Localizable.strings
+  Country
+  
+  Created by AI Assistant on 2024/09/16.
+  
+  繁體中文本地化檔案
+*/
+
+// MARK: - 主要功能
+"app_title" = "找廁所";
+"search_placeholder" = "輸入您的位置";
+"location_permission_required" = "需要位置權限";
+"location_permission_description" = "請在設定中允許位置存取\n才能使用定位功能";
+"go_to_settings" = "前往設定";
+"no_toilets_found" = "找不到相關公廁";
+"loading_toilets" = "載入公廁資料中...";
+"locating" = "定位中...";
+"need_location_for_nearby" = "需要定位才能顯示附近公廁";
+"press_location_button" = "請按下定位按鈕或允許位置權限";
+
+// MARK: - 設定頁面
+"settings" = "設定";
+"location_permission" = "位置權限";
+"location_permission_detail" = "允許應用程式存取您的位置以顯示附近公廁";
+"notification_settings" = "通知設定";
+"notification_detail" = "接收公廁相關通知和更新";
+"about_app" = "關於應用程式";
+"version" = "版本 1.0.0";
+"done" = "完成";
+
+// MARK: - 廁所類型
+"toilet_type_female" = "女廁所";
+"toilet_type_male" = "男廁所";
+"toilet_type_family" = "親子廁所";
+"toilet_type_accessible" = "無障礙廁所";
+"toilet_type_universal" = "通用廁所";
+"toilet_type_mixed" = "混合廁所";
+"toilet_type_gender_friendly" = "性別友善廁所";
+
+// MARK: - 廁所等級
+"grade_excellent" = "特優級";
+"grade_good" = "優級";
+"grade_fair" = "良級";
+"grade_normal" = "普通級";
+"grade_poor" = "待改善";
+
+// MARK: - 場所類型
+"venue_type_commercial" = "商業營業場所";
+"venue_type_transportation" = "交通運輸場站";
+"venue_type_tourism" = "觀光遊憩場所";
+"venue_type_religious" = "宗教禮儀場所";
+"venue_type_government" = "政府機關";
+"venue_type_education" = "教育場所";
+"venue_type_healthcare" = "醫療場所";
+
+// MARK: - 地點詳情
+"toilet_count" = "%d間";
+"floor_count" = "%d層";
+"calculating" = "計算中...";
+"select_floor" = "選擇樓層";
+"available_types" = "可用廁所類型";
+"details" = "詳細資訊";
+"address" = "地址";
+"diaper_station" = "尿布台";
+"venue_type" = "場所類型";
+"administration" = "管理單位";
+
+// MARK: - 地圖功能
+"map_app_selection" = "選擇地圖應用程式";
+"map_selection_description" = "請選擇要使用的地圖應用程式進行導航";
+"cancel" = "取消";
+
+// MARK: - 時間相關
+"minutes" = "%d分鐘";
+"hours" = "%d小時";
+"hours_minutes" = "%d小時%d分鐘";
+"days" = "%d天";
+"days_hours" = "%d天%d小時";
+"days_hours_minutes" = "%d天%d小時%d分鐘";
+
+// MARK: - 錯誤訊息
+"location_timeout" = "定位超時，請檢查網路連線";
+"location_failed" = "定位失敗";
+"data_load_failed" = "載入公廁資料失敗";
+"file_not_found" = "找不到 toilet.json 檔案";
+
+// MARK: - 除錯訊息
+"location_manager_init" = "LocationManager 初始化，權限狀態：%d";
+"request_permission_on_init" = "初始化時請求權限";
+"requesting_location_permission" = "請求位置權限...";
+"current_permission_status" = "當前權限狀態：%d";
+"called_request_when_in_use" = "已調用 requestWhenInUseAuthorization";
+"permission_status_after_1s" = "1秒後權限狀態：%d";
+"insufficient_permission" = "權限不足，請求權限";
+"start_location_process" = "開始定位流程";
+"trying_quick_location" = "嘗試快速定位...";
+"quick_location_failed" = "快速定位失敗，開始持續定位...";
+"location_timeout_stop" = "定位超時，停止定位";
+"start_quick_location" = "開始快速定位流程";
+"quick_location_timeout" = "快速定位超時，停止定位";
+"location_success" = "定位成功：緯度 %f, 經度 %f";
+"location_failed_error" = "定位失敗：%@";
+"permission_status_changed" = "權限狀態變更：%d";
+"permission_denied" = "權限被拒絕";
+"permission_restricted" = "權限受限制";
+"permission_granted_start_location" = "權限已獲得，開始定位";
+"insufficient_permission_update" = "權限不足，無法更新附近公廁";
+"no_location_info" = "沒有位置資訊，無法更新附近公廁";
+"updating_nearby_toilets" = "更新附近公廁，位置：%f, %f";
+"found_nearby_locations" = "找到 %d 個附近地點";
+
+// MARK: - 資料載入
+"successfully_loaded_toilets" = "成功載入 %d 筆公廁資料";
+"grouped_locations" = "群組後：%d 個地點";
+"multi_floor_locations" = "多樓層地點：%d 個";
+"data_load_error" = "載入公廁資料錯誤：%@";
+"using_cache" = "使用緩存：找到 %d 個公廁";
+"map_region_load" = "地圖區域載入：找到 %d 個公廁（縮放級別：%d）";
+
+// MARK: - 地圖切換
+"switch_to_standard_map" = "切換到標準地圖";
+"switch_to_satellite_map" = "切換到衛星地圖";
+"loading_toilet_data" = "載入公廁資料中...";

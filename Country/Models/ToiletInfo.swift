@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 // 台灣公廁資料模型
-struct ToiletInfo: Codable, Identifiable {
+struct ToiletInfo: Codable, Identifiable, Equatable {
     let id = UUID() // 為 SwiftUI List 提供唯一識別符
     let county: String          // 縣市代碼
     let city: String            // 鄉鎮市區代碼
@@ -93,8 +93,10 @@ struct ToiletInfo: Codable, Identifiable {
             return "figure.and.child.holdinghands"
         case "無障礙廁所":
             return "figure.roll"
-        case "通用廁所":
+        case "混合廁所":
             return "toilet"
+        case "性別友善廁所":
+            return "person.2.fill"
         default:
             return "figure.stand"
         }
@@ -111,7 +113,9 @@ struct ToiletInfo: Codable, Identifiable {
             return .green
         case "無障礙廁所":
             return .gray
-        case "通用廁所":
+        case "混合廁所":
+            return .orange
+        case "性別友善廁所":
             return .purple
         default:
             return .blue

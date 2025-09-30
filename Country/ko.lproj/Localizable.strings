@@ -1,0 +1,124 @@
+/* 
+  Localizable.strings
+  Country
+  
+  Created by AI Assistant on 2024/09/16.
+  
+  한국어 현지화 파일
+*/
+
+// MARK: - 주요 기능
+"app_title" = "화장실 찾기";
+"search_placeholder" = "위치를 입력하세요";
+"location_permission_required" = "위치 권한이 필요합니다";
+"location_permission_description" = "설정에서 위치 접근을 허용해주세요\n위치 기능을 사용하기 위해";
+"go_to_settings" = "설정으로 이동";
+"no_toilets_found" = "화장실을 찾을 수 없습니다";
+"loading_toilets" = "화장실 데이터 로딩 중...";
+"locating" = "위치 확인 중...";
+"need_location_for_nearby" = "근처 화장실을 표시하려면 위치가 필요합니다";
+"press_location_button" = "위치 버튼을 누르거나 위치 권한을 허용해주세요";
+
+// MARK: - 설정 페이지
+"settings" = "설정";
+"location_permission" = "위치 권한";
+"location_permission_detail" = "근처 화장실을 표시하기 위해 앱이 위치에 접근하는 것을 허용";
+"notification_settings" = "알림 설정";
+"notification_detail" = "화장실 관련 알림 및 업데이트 수신";
+"about_app" = "앱 정보";
+"version" = "버전 1.0.0";
+"done" = "완료";
+
+// MARK: - 화장실 유형
+"toilet_type_female" = "여자 화장실";
+"toilet_type_male" = "남자 화장실";
+"toilet_type_family" = "가족 화장실";
+"toilet_type_accessible" = "장애인 화장실";
+"toilet_type_universal" = "범용 화장실";
+"toilet_type_mixed" = "혼합 화장실";
+"toilet_type_gender_friendly" = "성별 친화적 화장실";
+
+// MARK: - 화장실 등급
+"grade_excellent" = "특우급";
+"grade_good" = "우급";
+"grade_fair" = "양급";
+"grade_normal" = "보통급";
+"grade_poor" = "개선 필요";
+
+// MARK: - 장소 유형
+"venue_type_commercial" = "상업 시설";
+"venue_type_transportation" = "교통 시설";
+"venue_type_tourism" = "관광지";
+"venue_type_religious" = "종교 시설";
+"venue_type_government" = "정부 기관";
+"venue_type_education" = "교육 기관";
+"venue_type_healthcare" = "의료 기관";
+
+// MARK: - 장소 세부사항
+"toilet_count" = "%d개";
+"floor_count" = "%d층";
+"calculating" = "계산 중...";
+"select_floor" = "층 선택";
+"available_types" = "사용 가능한 화장실 유형";
+"details" = "세부사항";
+"address" = "주소";
+"diaper_station" = "기저귀 교환대";
+"venue_type" = "장소 유형";
+"administration" = "관리 기관";
+
+// MARK: - 지도 기능
+"map_app_selection" = "지도 앱 선택";
+"map_selection_description" = "내비게이션에 사용할 지도 앱을 선택해주세요";
+"cancel" = "취소";
+
+// MARK: - 시간 관련
+"minutes" = "%d분";
+"hours" = "%d시간";
+"hours_minutes" = "%d시간 %d분";
+"days" = "%d일";
+"days_hours" = "%d일 %d시간";
+"days_hours_minutes" = "%d일 %d시간 %d분";
+
+// MARK: - 오류 메시지
+"location_timeout" = "위치 확인 시간 초과, 네트워크 연결을 확인해주세요";
+"location_failed" = "위치 확인 실패";
+"data_load_failed" = "화장실 데이터 로딩 실패";
+"file_not_found" = "toilet.json 파일을 찾을 수 없습니다";
+
+// MARK: - 디버그 메시지
+"location_manager_init" = "LocationManager 초기화, 권한 상태: %d";
+"request_permission_on_init" = "초기화 시 권한 요청";
+"requesting_location_permission" = "위치 권한 요청 중...";
+"current_permission_status" = "현재 권한 상태: %d";
+"called_request_when_in_use" = "requestWhenInUseAuthorization 호출";
+"permission_status_after_1s" = "1초 후 권한 상태: %d";
+"insufficient_permission" = "권한 부족, 권한 요청 중";
+"start_location_process" = "위치 확인 프로세스 시작";
+"trying_quick_location" = "빠른 위치 확인 시도 중...";
+"quick_location_failed" = "빠른 위치 확인 실패, 지속적 위치 확인 시작...";
+"location_timeout_stop" = "위치 확인 시간 초과, 중지";
+"start_quick_location" = "빠른 위치 확인 프로세스 시작";
+"quick_location_timeout" = "빠른 위치 확인 시간 초과, 중지";
+"location_success" = "위치 확인 성공: 위도 %f, 경도 %f";
+"location_failed_error" = "위치 확인 실패: %@";
+"permission_status_changed" = "권한 상태 변경: %d";
+"permission_denied" = "권한 거부";
+"permission_restricted" = "권한 제한";
+"permission_granted_start_location" = "권한 허용, 위치 확인 시작";
+"insufficient_permission_update" = "권한 부족, 근처 화장실을 업데이트할 수 없습니다";
+"no_location_info" = "위치 정보 없음, 근처 화장실을 업데이트할 수 없습니다";
+"updating_nearby_toilets" = "근처 화장실 업데이트 중, 위치: %f, %f";
+"found_nearby_locations" = "%d개의 근처 장소 발견";
+
+// MARK: - 데이터 로딩
+"successfully_loaded_toilets" = "%d개의 화장실 데이터를 성공적으로 로딩";
+"grouped_locations" = "그룹화 후: %d개의 장소";
+"multi_floor_locations" = "다층 장소: %d개";
+"data_load_error" = "데이터 로딩 오류: %@";
+"using_cache" = "캐시 사용: %d개의 화장실 발견";
+"map_region_load" = "지도 영역 로딩: %d개의 화장실 발견 (줌 레벨: %d)";
+
+// MARK: - 지도 전환
+"switch_to_standard_map" = "표준 지도로 전환";
+"switch_to_satellite_map" = "위성 지도로 전환";
+"loading_toilet_data" = "화장실 데이터 로딩 중...";
