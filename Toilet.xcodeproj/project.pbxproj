@@ -1,0 +1,593 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		31294C1E2E8D0A57001A32CE /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31294C1D2E8D0A57001A32CE /* StoreKit.framework */; };
+		31294C202E8D0C8D001A32CE /* Toilet.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 31294C1F2E8D0C8D001A32CE /* Toilet.storekit */; };
+		31877E242E9CF5BF00556966 /* toilet.icon in Resources */ = {isa = PBXBuildFile; fileRef = 31877E232E9CF5BF00556966 /* toilet.icon */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		319ED3212CF6BE2300427401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 319ED3082CF6BE2200427401 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 319ED30F2CF6BE2200427401;
+			remoteInfo = Toilet;
+		};
+		319ED32B2CF6BE2300427401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 319ED3082CF6BE2200427401 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 319ED30F2CF6BE2200427401;
+			remoteInfo = Toilet;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		31294C1D2E8D0A57001A32CE /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		31294C1F2E8D0C8D001A32CE /* Toilet.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Toilet.storekit; path = Toilet/Toilet.storekit; sourceTree = "<group>"; };
+		31877E232E9CF5BF00556966 /* toilet.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = toilet.icon; sourceTree = "<group>"; };
+		319ED3102CF6BE2200427401 /* 找廁所！.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "找廁所！.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		319ED3202CF6BE2300427401 /* ToiletTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = ToiletTests.xctest; path = "找廁所！.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		319ED32A2CF6BE2300427401 /* ToiletUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = ToiletUITests.xctest; path = "找廁所！.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		319ED3122CF6BE2200427401 /* Toilet */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Toilet;
+			sourceTree = "<group>";
+		};
+		319ED3232CF6BE2300427401 /* ToiletTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ToiletTests;
+			sourceTree = "<group>";
+		};
+		319ED32D2CF6BE2300427401 /* ToiletUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ToiletUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		319ED30D2CF6BE2200427401 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				31294C1E2E8D0A57001A32CE /* StoreKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		319ED31D2CF6BE2300427401 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		319ED3272CF6BE2300427401 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		31294C1C2E8D0A57001A32CE /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				31294C1D2E8D0A57001A32CE /* StoreKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		319ED3072CF6BE2200427401 = {
+			isa = PBXGroup;
+			children = (
+				31294C1F2E8D0C8D001A32CE /* Toilet.storekit */,
+				319ED3122CF6BE2200427401 /* Toilet */,
+				319ED3232CF6BE2300427401 /* ToiletTests */,
+				319ED32D2CF6BE2300427401 /* ToiletUITests */,
+				31294C1C2E8D0A57001A32CE /* Frameworks */,
+				319ED3112CF6BE2200427401 /* Products */,
+				31877E232E9CF5BF00556966 /* toilet.icon */,
+			);
+			sourceTree = "<group>";
+		};
+		319ED3112CF6BE2200427401 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				319ED3102CF6BE2200427401 /* 找廁所！.app */,
+				319ED3202CF6BE2300427401 /* ToiletTests.xctest */,
+				319ED32A2CF6BE2300427401 /* ToiletUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		319ED30F2CF6BE2200427401 /* Toilet */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 319ED3342CF6BE2300427401 /* Build configuration list for PBXNativeTarget "Toilet" */;
+			buildPhases = (
+				319ED30C2CF6BE2200427401 /* Sources */,
+				319ED30D2CF6BE2200427401 /* Frameworks */,
+				319ED30E2CF6BE2200427401 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				319ED3122CF6BE2200427401 /* Toilet */,
+			);
+			name = Toilet;
+			packageProductDependencies = (
+			);
+			productName = Toilet;
+			productReference = 319ED3102CF6BE2200427401 /* 找廁所！.app */;
+			productType = "com.apple.product-type.application";
+		};
+		319ED31F2CF6BE2300427401 /* ToiletTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 319ED3372CF6BE2300427401 /* Build configuration list for PBXNativeTarget "ToiletTests" */;
+			buildPhases = (
+				319ED31C2CF6BE2300427401 /* Sources */,
+				319ED31D2CF6BE2300427401 /* Frameworks */,
+				319ED31E2CF6BE2300427401 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				319ED3222CF6BE2300427401 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				319ED3232CF6BE2300427401 /* ToiletTests */,
+			);
+			name = ToiletTests;
+			packageProductDependencies = (
+			);
+			productName = ToiletTests;
+			productReference = 319ED3202CF6BE2300427401 /* ToiletTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		319ED3292CF6BE2300427401 /* ToiletUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 319ED33A2CF6BE2300427401 /* Build configuration list for PBXNativeTarget "ToiletUITests" */;
+			buildPhases = (
+				319ED3262CF6BE2300427401 /* Sources */,
+				319ED3272CF6BE2300427401 /* Frameworks */,
+				319ED3282CF6BE2300427401 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				319ED32C2CF6BE2300427401 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				319ED32D2CF6BE2300427401 /* ToiletUITests */,
+			);
+			name = ToiletUITests;
+			packageProductDependencies = (
+			);
+			productName = ToiletUITests;
+			productReference = 319ED32A2CF6BE2300427401 /* ToiletUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		319ED3082CF6BE2200427401 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1610;
+				LastUpgradeCheck = 1610;
+				TargetAttributes = {
+					319ED30F2CF6BE2200427401 = {
+						CreatedOnToolsVersion = 16.1;
+					};
+					319ED31F2CF6BE2300427401 = {
+						CreatedOnToolsVersion = 16.1;
+						TestTargetID = 319ED30F2CF6BE2200427401;
+					};
+					319ED3292CF6BE2300427401 = {
+						CreatedOnToolsVersion = 16.1;
+						TestTargetID = 319ED30F2CF6BE2200427401;
+					};
+				};
+			};
+			buildConfigurationList = 319ED30B2CF6BE2200427401 /* Build configuration list for PBXProject "Toilet" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				"zh-Hant",
+				ja,
+				ko,
+				Base,
+			);
+			mainGroup = 319ED3072CF6BE2200427401;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 319ED3112CF6BE2200427401 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				319ED30F2CF6BE2200427401 /* Toilet */,
+				319ED31F2CF6BE2300427401 /* ToiletTests */,
+				319ED3292CF6BE2300427401 /* ToiletUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		319ED30E2CF6BE2200427401 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				31294C202E8D0C8D001A32CE /* Toilet.storekit in Resources */,
+				31877E242E9CF5BF00556966 /* toilet.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		319ED31E2CF6BE2300427401 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		319ED3282CF6BE2300427401 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		319ED30C2CF6BE2200427401 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		319ED31C2CF6BE2300427401 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		319ED3262CF6BE2300427401 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		319ED3222CF6BE2300427401 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 319ED30F2CF6BE2200427401 /* Toilet */;
+			targetProxy = 319ED3212CF6BE2300427401 /* PBXContainerItemProxy */;
+		};
+		319ED32C2CF6BE2300427401 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 319ED30F2CF6BE2200427401 /* Toilet */;
+			targetProxy = 319ED32B2CF6BE2300427401 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		319ED3322CF6BE2300427401 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		319ED3332CF6BE2300427401 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		319ED3352CF6BE2300427401 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = toilet;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 251013;
+				DEVELOPMENT_ASSET_PATHS = "\"Toilet/Preview Content\"";
+				DEVELOPMENT_TEAM = 5353WH6FVX;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "此應用程式需要存取您的位置來尋找附近的公廁，即使應用程式在背景運行";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "此應用程式需要存取您的位置來尋找附近的公廁";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kenny.findtoilet;
+				PRODUCT_NAME = "找廁所！";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		319ED3362CF6BE2300427401 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = toilet;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 251013;
+				DEVELOPMENT_ASSET_PATHS = "\"Toilet/Preview Content\"";
+				DEVELOPMENT_TEAM = 5353WH6FVX;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "此應用程式需要存取您的位置來尋找附近的公廁，即使應用程式在背景運行";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "此應用程式需要存取您的位置來尋找附近的公廁";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kenny.findtoilet;
+				PRODUCT_NAME = "找廁所！";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		319ED3382CF6BE2300427401 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 251013;
+				DEVELOPMENT_TEAM = 5353WH6FVX;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kenny.ToiletTests;
+				PRODUCT_NAME = "找廁所！";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Toilet.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Toilet";
+			};
+			name = Debug;
+		};
+		319ED3392CF6BE2300427401 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 251013;
+				DEVELOPMENT_TEAM = 5353WH6FVX;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.1;
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kenny.ToiletTests;
+				PRODUCT_NAME = "找廁所！";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Toilet.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Toilet";
+			};
+			name = Release;
+		};
+		319ED33B2CF6BE2300427401 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 251013;
+				DEVELOPMENT_TEAM = 5353WH6FVX;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kenny.ToiletUITests;
+				PRODUCT_NAME = "找廁所！";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Toilet;
+			};
+			name = Debug;
+		};
+		319ED33C2CF6BE2300427401 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 251013;
+				DEVELOPMENT_TEAM = 5353WH6FVX;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kenny.ToiletUITests;
+				PRODUCT_NAME = "找廁所！";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Toilet;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		319ED30B2CF6BE2200427401 /* Build configuration list for PBXProject "Toilet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				319ED3322CF6BE2300427401 /* Debug */,
+				319ED3332CF6BE2300427401 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		319ED3342CF6BE2300427401 /* Build configuration list for PBXNativeTarget "Toilet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				319ED3352CF6BE2300427401 /* Debug */,
+				319ED3362CF6BE2300427401 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		319ED3372CF6BE2300427401 /* Build configuration list for PBXNativeTarget "ToiletTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				319ED3382CF6BE2300427401 /* Debug */,
+				319ED3392CF6BE2300427401 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		319ED33A2CF6BE2300427401 /* Build configuration list for PBXNativeTarget "ToiletUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				319ED33B2CF6BE2300427401 /* Debug */,
+				319ED33C2CF6BE2300427401 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 319ED3082CF6BE2200427401 /* Project object */;
+}
