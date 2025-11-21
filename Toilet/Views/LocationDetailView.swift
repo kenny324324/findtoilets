@@ -164,7 +164,7 @@ struct LocationDetailView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // 地點概覽區域
                     VStack(spacing: 16) {
@@ -504,6 +504,7 @@ struct LocationDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .scrollDisabled(locationDetailDetent == .height(200)) // 最小高度時禁用滾動
             .navigationTitle(location.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

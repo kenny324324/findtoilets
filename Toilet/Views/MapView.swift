@@ -278,18 +278,8 @@ struct MapView: UIViewRepresentable {
         
         // 處理標記點擊事件
         func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
-            // 如果地圖正在移動，忽略點擊
-            if isMapMoving {
-                return
-            }
-            
-            // 添加更長的延遲，確保地圖完全停止移動
+            // 添加短暫延遲，讓系統完成內建動作（例如顯示氣泡）
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                // 再次檢查地圖是否還在移動
-                if self.isMapMoving {
-                    return
-                }
-                
                 if let cluster = view.annotation as? MKClusterAnnotation {
                     let annotations = cluster.memberAnnotations
                     

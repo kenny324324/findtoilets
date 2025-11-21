@@ -16,6 +16,7 @@ struct ToiletDetailView: View {
     @State private var walkingTimeMinutes: Int = 0
     @State private var isCalculatingDistance: Bool = false
     @State private var showingMapOptions = false
+    @Binding var toiletDetailDetent: PresentationDetent // 接收 detent binding
     
     // 格式化步行時間顯示
     private func formatWalkingTime(_ minutes: Int) -> String {
@@ -95,7 +96,7 @@ struct ToiletDetailView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // 主要標題區域 (類似 Apple Maps 的 Place Card)
                     VStack(spacing: 16) {
@@ -277,6 +278,7 @@ struct ToiletDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .scrollDisabled(toiletDetailDetent == .height(200)) // 最小高度時禁用滾動
         }
         .background(Color.clear)
         .onAppear {
@@ -386,20 +388,23 @@ struct ToiletDetailView: View {
 }
 
 #Preview {
-    ToiletDetailView(toilet: ToiletInfo(
-        county: "10001",
-        city: "1000101",
-        village: "信義區",
-        number: "DEMO001",
-        name: "台北101-女廁",
-        address: "台北市信義區信義路五段7號",
-        administration: "台北101",
-        latitude: "25.0330",
-        longitude: "121.5654",
-        grade: "特優級",
-        type2: "商業營業場所",
-        type: "女廁所",
-        exec: "台北101",
-        diaper: "1"
-    ))
+    ToiletDetailView(
+        toilet: ToiletInfo(
+            county: "10001",
+            city: "1000101",
+            village: "信義區",
+            number: "DEMO001",
+            name: "台北101-女廁",
+            address: "台北市信義區信義路五段7號",
+            administration: "台北101",
+            latitude: "25.0330",
+            longitude: "121.5654",
+            grade: "特優級",
+            type2: "商業營業場所",
+            type: "女廁所",
+            exec: "台北101",
+            diaper: "1"
+        ),
+        toiletDetailDetent: .constant(.medium)
+    )
 }

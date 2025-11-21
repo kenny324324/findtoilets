@@ -246,7 +246,7 @@ struct ToiletView: View {
                     .interactiveDismissDisabled(true)
             }
             .sheet(item: $selectedToiletForDetail) { toilet in
-                ToiletDetailView(toilet: toilet)
+                ToiletDetailView(toilet: toilet, toiletDetailDetent: $toiletDetailDetent)
                     .presentationDetents([.height(200), .medium, .large], selection: $toiletDetailDetent)
                     .presentationBackgroundInteraction(.enabled)
                     .presentationDragIndicator(.hidden)
