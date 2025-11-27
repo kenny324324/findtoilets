@@ -192,6 +192,13 @@ struct HomeSheetView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .padding(.horizontal, 20)
                                 
+                                // 原生廣告獨立區塊
+                                if !premiumManager.isPremium {
+                                    AdMobNativeCard()
+                                        .environmentObject(premiumManager)
+                                        .padding(.top, 16) // 與上方列表保持距離
+                                }
+                                
                                 // 最近瀏覽區塊（始終顯示）
                                 RecentlyViewedSection(
                                     locations: recentlyViewedLocations,
@@ -206,33 +213,83 @@ struct HomeSheetView: View {
                         .scrollIndicators(.hidden)
                         .transition(.opacity)
                     } else {
-                        // 無資料時顯示原本的大按鈕
-                        Spacer()
-                        
-                        VStack(spacing: 20) {
-                            Button(action: {
-                                selectedDetent = .medium
-                                DispatchQueue.main.async {
-                                    showNearbyList = true
+                        // 無資料時顯示佔位符，保持佈局一致
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 0) {
+                                // 標題（與有資料時一致）
+                                HStack(spacing: 0) {
+                                    HStack(spacing: 6) {
+                                        Text("附近")
+                                            .font(.system(size: 22, weight: .bold))
+                                            .foregroundColor(.primary)
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                    }
+                                    Spacer()
                                 }
-                            }) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "location.fill")
-                                        .font(.system(size: 24))
-                                    Text("查看附近")
-                                        .font(.headlineRounded(.semibold))
+                                .padding(.horizontal, 20)
+                                .padding(.top, 16)
+                                .padding(.bottom, 12)
+                                
+                                // 佔位符卡片（skeleton）
+                                VStack(spacing: 0) {
+                                    ForEach(0..<3, id: \.self) { index in
+                                        HStack(spacing: 14) {
+                                            // 佔位符圖示
+                                            RoundedRectangle(cornerRadius: 7)
+                                                .fill(Color.gray.opacity(0.2))
+                                                .frame(width: 34, height: 34)
+                                            
+                                            // 佔位符文字
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .fill(Color.gray.opacity(0.2))
+                                                    .frame(width: 120, height: 14)
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .fill(Color.gray.opacity(0.15))
+                                                    .frame(width: 60, height: 10)
+                                            }
+                                            
+                                            Spacer()
+                                            
+                                            // 佔位符距離
+                                            RoundedRectangle(cornerRadius: 7)
+                                                .fill(Color.gray.opacity(0.15))
+                                                .frame(width: 50, height: 24)
+                                        }
+                                        .padding(.horizontal, 24)
+                                        .padding(.vertical, 16)
+                                        
+                                        if index < 2 {
+                                            Divider()
+                                                .padding(.leading, 72)
+                                        }
+                                    }
                                 }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(Color.blue)
+                                .background(Color.black.opacity(0.03))
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .padding(.horizontal, 20)
+                                
+                                // 原生廣告區塊
+                                AdMobNativeCard()
+                                    .environmentObject(premiumManager)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 16)
+                                
+                                // 最近瀏覽區塊（始終顯示）
+                                RecentlyViewedSection(
+                                    locations: recentlyViewedLocations,
+                                    onLocationTap: presentLocationDetail,
+                                    getStarCount: getStarCount
+                                )
+                                
+                                Spacer(minLength: 20)
                             }
-                            .padding(.horizontal, 20)
                         }
+                        .scrollDisabled(selectedDetent == .height(200))
+                        .scrollIndicators(.hidden)
                         .transition(.opacity)
-                        
-                        Spacer()
                     }
                 }
             }
@@ -734,13 +791,29 @@ struct NearbyListView: View {
                                 } else {
                                     ScrollView(showsIndicators: false) {
                                         LazyVStack(spacing: 0) {
-                                            ForEach(results, id: \.0.id) { locationWithDistance in
+                                            ForEach(Array(results.enumerated()), id: \.element.0.id) { index, locationWithDistance in
                                                 Button(action: {
                                                     presentLocationDetail(locationWithDistance.0)
                                                 }) {
                                                     LocationRowView(location: locationWithDistance.0, distance: locationWithDistance.1)
                                                 }
                                                 .buttonStyle(PlainButtonStyle())
+                                                
+                                                // 在第 5 個項目（index == 4）後插入廣告
+                                                if index == 4 && !premiumManager.isPremium {
+                                                    VStack(spacing: 0) {
+                                                        Divider()
+                                                            .padding(.leading, 20)
+                                                        
+                                                        AdMobNativeCard()
+                                                            .environmentObject(premiumManager)
+                                                            .padding(.horizontal, 20)
+                                                            .padding(.vertical, 16)
+                                                        
+                                                        Divider()
+                                                            .padding(.leading, 20)
+                                                    }
+                                                }
                                             }
                                         }
                                     }

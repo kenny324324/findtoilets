@@ -7,12 +7,18 @@
 
 import SwiftUI
 import StoreKit
+import GoogleMobileAds
 
 @main
 struct ToiletApp: App {
     // 建立 PremiumManager 實例
     @StateObject private var premiumManager = PremiumManager()
     @StateObject private var purchaseManager = PurchaseManager()
+    
+    init() {
+        // 初始化 Google Mobile Ads SDK
+        MobileAds.shared.start(completionHandler: nil)
+    }
     
     var body: some Scene {
         WindowGroup {

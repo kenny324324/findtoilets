@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-class PremiumManager: ObservableObject {
+public class PremiumManager: ObservableObject {
     // 付費狀態（由 StoreKit 交易結果決定）
     @Published var isPremium: Bool = false
     

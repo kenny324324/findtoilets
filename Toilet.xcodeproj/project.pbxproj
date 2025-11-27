@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		31294C1E2E8D0A57001A32CE /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31294C1D2E8D0A57001A32CE /* StoreKit.framework */; };
 		31294C202E8D0C8D001A32CE /* Toilet.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 31294C1F2E8D0C8D001A32CE /* Toilet.storekit */; };
+		313BBEE82ED59EA500E3D70E /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 313BBEE72ED59EA500E3D70E /* GoogleMobileAds */; };
 		31877E242E9CF5BF00556966 /* toilet.icon in Resources */ = {isa = PBXBuildFile; fileRef = 31877E232E9CF5BF00556966 /* toilet.icon */; };
 /* End PBXBuildFile section */
 
@@ -38,9 +39,22 @@
 		319ED32A2CF6BE2300427401 /* ToiletUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = ToiletUITests.xctest; path = "找廁所！.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		313BBEEA2ED59ECC00E3D70E /* Exceptions for "Toilet" folder in "Toilet" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 319ED30F2CF6BE2200427401 /* Toilet */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		319ED3122CF6BE2200427401 /* Toilet */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				313BBEEA2ED59ECC00E3D70E /* Exceptions for "Toilet" folder in "Toilet" target */,
+			);
 			path = Toilet;
 			sourceTree = "<group>";
 		};
@@ -61,6 +75,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				313BBEE82ED59EA500E3D70E /* GoogleMobileAds in Frameworks */,
 				31294C1E2E8D0A57001A32CE /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -133,6 +148,7 @@
 			);
 			name = Toilet;
 			packageProductDependencies = (
+				313BBEE72ED59EA500E3D70E /* GoogleMobileAds */,
 			);
 			productName = Toilet;
 			productReference = 319ED3102CF6BE2200427401 /* 找廁所！.app */;
@@ -219,6 +235,9 @@
 			);
 			mainGroup = 319ED3072CF6BE2200427401;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				313BBEE62ED59EA500E3D70E /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 319ED3112CF6BE2200427401 /* Products */;
 			projectDirPath = "";
@@ -420,11 +439,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = toilet;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 251121;
+				CURRENT_PROJECT_VERSION = 251127;
 				DEVELOPMENT_ASSET_PATHS = "\"Toilet/Preview Content\"";
 				DEVELOPMENT_TEAM = 5353WH6FVX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Toilet/Info.plist;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "此應用程式需要存取您的位置來尋找附近的公廁，即使應用程式在背景運行";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "此應用程式需要存取您的位置來尋找附近的公廁";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -436,7 +456,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kenny.findtoilet;
 				PRODUCT_NAME = "找廁所！";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -451,11 +471,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = toilet;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 251121;
+				CURRENT_PROJECT_VERSION = 251127;
 				DEVELOPMENT_ASSET_PATHS = "\"Toilet/Preview Content\"";
 				DEVELOPMENT_TEAM = 5353WH6FVX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Toilet/Info.plist;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "此應用程式需要存取您的位置來尋找附近的公廁，即使應用程式在背景運行";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "此應用程式需要存取您的位置來尋找附近的公廁";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -467,7 +488,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kenny.findtoilet;
 				PRODUCT_NAME = "找廁所！";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -588,6 +609,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		313BBEE62ED59EA500E3D70E /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.14.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		313BBEE72ED59EA500E3D70E /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 313BBEE62ED59EA500E3D70E /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 319ED3082CF6BE2200427401 /* Project object */;
 }
