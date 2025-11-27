@@ -191,13 +191,13 @@ struct HomeSheetView: View {
                                 .background(Color.black.opacity(0.03))
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .padding(.horizontal, 20)
-                                
+                                    
                                 // 原生廣告獨立區塊
-                                if !premiumManager.isPremium {
-                                    AdMobNativeCard()
-                                        .environmentObject(premiumManager)
+                                    if !premiumManager.isPremium {
+                                        AdMobNativeCard()
+                                            .environmentObject(premiumManager)
                                         .padding(.top, 16) // 與上方列表保持距離
-                                }
+                                    }
                                 
                                 // 最近瀏覽區塊（始終顯示）
                                 RecentlyViewedSection(
@@ -805,7 +805,7 @@ struct NearbyListView: View {
                                                         Divider()
                                                             .padding(.leading, 20)
                                                         
-                                                        AdMobNativeCard()
+                                                        AdMobNativeCard(showBackground: false) // 這裡傳入 showBackground: false
                                                             .environmentObject(premiumManager)
                                                             .padding(.horizontal, 20)
                                                             .padding(.vertical, 16)

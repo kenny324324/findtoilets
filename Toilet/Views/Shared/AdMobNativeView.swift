@@ -3,10 +3,11 @@ import GoogleMobileAds
 
 struct AdMobNativeView: UIViewRepresentable {
     let nativeAd: GoogleMobileAds.NativeAd
+    var showBackground: Bool = true // 預設顯示背景
     
     func makeUIView(context: Context) -> NativeAdView {
-            // 建立一個 NativeAdView，給予一個初始 frame
-            let adView = NativeAdView(frame: CGRect(x: 0, y: 0, width: 375, height: 300))
+        // 建立一個 NativeAdView，給予一個初始 frame
+        let adView = NativeAdView(frame: CGRect(x: 0, y: 0, width: 375, height: 300))
         
         // 設置 UI 元件
         setupAdView(adView)
@@ -17,6 +18,15 @@ struct AdMobNativeView: UIViewRepresentable {
     func updateUIView(_ uiView: NativeAdView, context: Context) {
         // 將廣告資料綁定到視圖
         uiView.nativeAd = nativeAd
+        
+        // 根據 showBackground 更新背景顏色
+        if showBackground {
+            uiView.backgroundColor = UIColor.black.withAlphaComponent(0.03)
+            uiView.layer.cornerRadius = 16
+        } else {
+            uiView.backgroundColor = .clear
+            uiView.layer.cornerRadius = 0
+        }
         
         // 更新 UI 內容
         (uiView.headlineView as? UILabel)?.text = nativeAd.headline
@@ -45,9 +55,14 @@ struct AdMobNativeView: UIViewRepresentable {
     
     private func setupAdView(_ adView: NativeAdView) {
         // 設置容器樣式 - 卡片風格
-        // 跟列表一樣的半透明背景 (Color.black.opacity(0.03))
-        adView.backgroundColor = UIColor.black.withAlphaComponent(0.03)
-        adView.layer.cornerRadius = 16 // 圓角
+        // 初始背景設定，之後會在 updateUIView 中根據 showBackground 更新
+        if showBackground {
+            adView.backgroundColor = UIColor.black.withAlphaComponent(0.03)
+            adView.layer.cornerRadius = 16
+        } else {
+            adView.backgroundColor = .clear
+            adView.layer.cornerRadius = 0
+        }
         adView.clipsToBounds = true
         
         // 1. Icon
@@ -183,17 +198,18 @@ struct AdMobNativeCard: View {
     @StateObject private var adManager = NativeAdManager()
     @EnvironmentObject var premiumManager: PremiumManager
     
+    // 增加一個參數來控制背景顏色
+    var showBackground: Bool = true
+    
     var body: some View {
         if !premiumManager.isPremium {
             Group {
                 if let nativeAd = adManager.nativeAd {
-                    AdMobNativeView(nativeAd: nativeAd)
+                    AdMobNativeView(nativeAd: nativeAd, showBackground: showBackground)
                         .frame(height: 300) // 調整高度
                         .background(Color.clear)
-                        .padding(.horizontal, 20) // 增加水平 Padding 讓它變成獨立區塊
-                        .padding(.vertical, 10)   // 增加垂直 Padding
-                        // 移除陰影
-                        // .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2) 
+                        .padding(.horizontal, showBackground ? 20 : 0) // 如果沒有背景，就不需要額外的水平 padding
+                        .padding(.vertical, showBackground ? 10 : 0)   // 如果沒有背景，就不需要額外的垂直 padding
                 } else {
                     Color.clear
                         .frame(height: 0)
