@@ -281,36 +281,34 @@ struct MapView: UIViewRepresentable {
             // 添加短暫延遲，讓系統完成內建動作（例如顯示氣泡）
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 if let cluster = view.annotation as? MKClusterAnnotation {
-                    let annotations = cluster.memberAnnotations
+                    // 檢查這個聚合是否包含的是同一個地點的廁所
+                    let memberAnnotations = cluster.memberAnnotations
                     
-                    // 輸出聚類包含的所有地點資訊
-                    print("\n🎯 點擊了聚類標記，包含 \(annotations.count) 個地點：")
-                    print(String(repeating: "=", count: 50))
+                    // 收集所有相關的地點
+                    var locations: [ToiletLocation] = []
                     
-                    for (index, annotation) in annotations.enumerated() {
-                        if let locationAnnotation = annotation as? ToiletLocationAnnotation {
-                            let location = locationAnnotation.location
-                            print("\n[\(index + 1)] \(location.name)")
-                            print("   📍 地址：\(location.address)")
-                            print("   🚽 廁所數量：\(location.totalToiletCount) 間")
-                            print("   🏢 樓層：\(location.toiletsByFloor.map { $0.floorName }.joined(separator: ", "))")
-                            
-                            // 顯示該地點的所有廁所
-                            for floor in location.toiletsByFloor {
-                                print("      ↳ \(floor.floorName): \(floor.toilets.count) 間")
-                                for toilet in floor.toilets {
-                                    print("         - \(toilet.name) (\(toilet.type))")
-                                }
-                            }
+                    for annotation in memberAnnotations {
+                        if let locAnnotation = annotation as? ToiletLocationAnnotation {
+                            locations.append(locAnnotation.location)
                         } else if let toiletAnnotation = annotation as? ToiletAnnotation {
-                            let toilet = toiletAnnotation.toilet
-                            print("\n[\(index + 1)] \(toilet.name)")
-                            print("   📍 地址：\(toilet.address)")
-                            print("   🚽 類型：\(toilet.type)")
+                            // 如果是單一廁所標記，我們需要找到它所屬的地點（這裡簡化處理，假設目前架構多是 LocationAnnotation）
+                            // 暫時忽略純 ToiletAnnotation 的聚合判斷，因為目前架構主要用 Location
                         }
                     }
-                    print("\n" + String(repeating: "=", count: 50) + "\n")
                     
+                    // 去除重複的地點 ID
+                    let uniqueLocationIds = Set(locations.map { $0.id })
+                    
+                    // 如果聚合裡只有「一個」獨特的地點（只是可能有多個標記或誤判），直接打開該地點
+                    if uniqueLocationIds.count == 1, let firstLocation = locations.first {
+                        print("🎯 聚合點擊：判定為單一地點 \(firstLocation.name)，直接開啟詳情")
+                        self.parent.onLocationSelected?(firstLocation)
+                        mapView.deselectAnnotation(cluster, animated: true)
+                        return
+                    }
+                    
+                    // 準備 coordinates 陣列
+                    let annotations = cluster.memberAnnotations
                     let coordinates = annotations.compactMap { annotation -> CLLocationCoordinate2D? in
                         if let toiletAnnotation = annotation as? ToiletAnnotation {
                             return toiletAnnotation.coordinate
@@ -320,6 +318,30 @@ struct MapView: UIViewRepresentable {
                         }
                         return nil
                     }
+                    
+                    // 檢查座標是否完全相同或極度接近（針對座標重疊但 ID 不同的情況）
+                    // 計算座標的變異程度 (Spread)
+                    let lats = coordinates.map { $0.latitude }
+                    let lons = coordinates.map { $0.longitude }
+                    let latSpread = (lats.max() ?? 0) - (lats.min() ?? 0)
+                    let lonSpread = (lons.max() ?? 0) - (lons.min() ?? 0)
+                    
+                    // 如果座標差異極小（小於 0.0001，約 10 公尺），視為重疊
+                    if latSpread < 0.0001 && lonSpread < 0.0001 {
+                        print("🎯 聚合點擊：座標重疊（多個地點），強制選擇第一個")
+                        
+                        // 這裡有兩個選擇：
+                        // 1. 彈出列表讓使用者選（需要 UI 支援）
+                        // 2. 簡單起見，直接打開第一個地點（因為通常是同一個建築物的不同入口或名稱）
+                        
+                        if let firstLocation = locations.first {
+                            self.parent.onLocationSelected?(firstLocation)
+                            mapView.deselectAnnotation(cluster, animated: true)
+                            return
+                        }
+                    }
+                    
+                    // 原有的縮放邏輯 (針對多個不同地點聚合在一起的情況)
                     
                     if !coordinates.isEmpty {
                         var zoomRect = MKMapRect.null

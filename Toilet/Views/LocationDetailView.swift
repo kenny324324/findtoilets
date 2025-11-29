@@ -10,6 +10,42 @@ import MapKit
 import CoreLocation
 import UIKit
 
+// 回報資料結構
+struct LocationReport: Identifiable {
+    let id = UUID()
+    let status: ReportStatus
+    let time: Date
+    let user: String
+    
+    enum ReportStatus: String {
+        case clean = "乾淨舒適"
+        case noPaper = "缺衛生紙"
+        case dirty = "髒亂"
+        case maintenance = "維修中"
+        case crowded = "排隊人多"
+        
+        var icon: String {
+            switch self {
+            case .clean: return "sparkles"
+            case .noPaper: return "scroll"
+            case .dirty: return "exclamationmark.triangle"
+            case .maintenance: return "hammer"
+            case .crowded: return "person.3.fill"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .clean: return .green
+            case .noPaper: return .orange
+            case .dirty: return .brown
+            case .maintenance: return .red
+            case .crowded: return .blue
+            }
+        }
+    }
+}
+
 struct LocationDetailView: View {
     let location: ToiletLocation
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +56,14 @@ struct LocationDetailView: View {
     @State private var selectedFloor: String = "" // 選中的樓層
     @State private var selectedToilet: ToiletInfo? = nil // 選中的廁所
     @Binding var locationDetailDetent: PresentationDetent // 接收 detent binding
+    
+    // 回報相關 State
+    @State private var showingReportSheet = false
+    @State private var recentReports: [LocationReport] = [
+        // 假資料：模擬社群回報
+        LocationReport(status: .clean, time: Date().addingTimeInterval(-1800), user: "路人A"),
+        LocationReport(status: .noPaper, time: Date().addingTimeInterval(-7200), user: "熱心民眾")
+    ]
     
     // 初始化選中的樓層
     init(location: ToiletLocation, locationDetailDetent: Binding<PresentationDetent>) {
@@ -56,6 +100,13 @@ struct LocationDetailView: View {
                 return LocalizedStrings.daysHoursMinutes.localized(days, remainingHours, remainingMinutes)
             }
         }
+    }
+    
+    // 時間顯示輔助
+    private func timeAgoDisplay(date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
     
     // 計算走路時間
@@ -223,37 +274,103 @@ struct LocationDetailView: View {
                             Spacer()
                         }
                         
-                        // 導航按鈕
-                        Button(action: { showingMapOptions = true }) {
-                            VStack(spacing: 6) {
-                                Image(systemName: "figure.walk")
-                                    .font(.subheadlineRounded())
-                                    .foregroundColor(.white)
-                                    .frame(width: 16, height: 16)
-                                
-                                if isCalculatingDistance {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
-                                } else if walkingTimeMinutes > 0 {
-                                    Text(formatWalkingTime(walkingTimeMinutes))
-                                        .font(.captionRounded(.semibold))
+                        // 導航與回報按鈕區域
+                        HStack(spacing: 12) {
+                            // 1. 導航按鈕
+                            Button(action: { showingMapOptions = true }) {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "figure.walk")
+                                        .font(.subheadlineRounded())
                                         .foregroundColor(.white)
-                                } else {
-                                    Text(LocalizedStrings.calculating.localized)
+                                        .frame(width: 16, height: 16)
+                                    
+                                    if isCalculatingDistance {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            .scaleEffect(0.8)
+                                    } else if walkingTimeMinutes > 0 {
+                                        Text(formatWalkingTime(walkingTimeMinutes))
+                                            .font(.captionRounded(.semibold))
+                                            .foregroundColor(.white)
+                                    } else {
+                                        Text(LocalizedStrings.calculating.localized)
+                                            .font(.captionRounded(.semibold))
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 56)
+                                .background(Color.blue)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                            }
+                            
+                            // 2. 回報按鈕
+                            Button(action: { showingReportSheet = true }) {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "bullhorn.fill")
+                                        .font(.subheadlineRounded())
+                                        .foregroundColor(.white)
+                                        .frame(width: 16, height: 16)
+                                    
+                                    Text("回報狀況")
                                         .font(.captionRounded(.semibold))
                                         .foregroundColor(.white)
                                 }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 56)
+                                .background(Color.orange)
+                                .clipShape(RoundedRectangle(cornerRadius: 16))
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.blue)
-                            .clipShape(Capsule())
                         }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
+                    .padding(.bottom, 20)
+                    
+                    // 社群即時情報區塊
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("即時情報")
+                                .font(.title3Rounded(.semibold))
+                            Spacer()
+                            Text("\(recentReports.count) 則回報")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 20)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                // 預留：這裡可以插入一個小型的 AdMob Native Ad
+                                // NativeAdCard()
+                                
+                                ForEach(recentReports) { report in
+                                    HStack(spacing: 12) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(report.status.color.opacity(0.1))
+                                                .frame(width: 40, height: 40)
+                                            Image(systemName: report.status.icon)
+                                                .foregroundColor(report.status.color)
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(report.status.rawValue)
+                                                .font(.subheadline.bold())
+                                                .foregroundColor(report.status.color)
+                                            Text("\(report.user) • \(timeAgoDisplay(date: report.time))")
+                                                .font(.caption2)
+                                                .foregroundColor(.gray)
+                                        }
+                                    }
+                                    .padding(12)
+                                    .background(Color(.systemGray6))
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
                     .padding(.bottom, 20)
                     
                     // 多樓層選擇器
@@ -544,6 +661,19 @@ struct LocationDetailView: View {
         } message: {
             Text(LocalizedStrings.mapSelectionDescription.localized)
         }
+        // 回報視窗 Sheet
+        .sheet(isPresented: $showingReportSheet) {
+            LocationReportView(locationName: location.name, onReport: { status in
+                // 本地模擬新增回報
+                let newReport = LocationReport(status: status, time: Date(), user: "我")
+                withAnimation {
+                    recentReports.insert(newReport, at: 0)
+                }
+                // TODO: 這裡之後接廣告邏輯
+            })
+            .presentationDetents([.height(380)])
+            .presentationDragIndicator(.visible)
+        }
     }
     
     // 根據廁所類型獲取圖示名稱
@@ -653,6 +783,77 @@ struct LocationDetailView: View {
            let window = windowScene.windows.first {
             window.rootViewController?.present(activityVC, animated: true)
         }
+    }
+}
+
+// 新增：地點回報專用的 View
+struct LocationReportView: View {
+    let locationName: String
+    let onReport: (LocationReport.ReportStatus) -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    let reportOptions: [(String, LocationReport.ReportStatus)] = [
+        ("乾淨舒適", .clean),
+        ("缺衛生紙", .noPaper),
+        ("髒亂", .dirty),
+        ("維修中", .maintenance),
+        ("排隊人多", .crowded)
+    ]
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            // 頂部把手
+            Capsule()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 40, height: 4)
+                .padding(.top, 10)
+            
+            Text("即時狀況回報")
+                .font(.title3.bold())
+            
+            Text(locationName)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 16) {
+                ForEach(reportOptions, id: \.0) { option in
+                    Button(action: {
+                        submitReport(status: option.1)
+                    }) {
+                        VStack(spacing: 12) {
+                            Circle()
+                                .fill(option.1.color.opacity(0.1))
+                                .frame(width: 56, height: 56)
+                                .overlay(
+                                    Image(systemName: option.1.icon)
+                                        .font(.title2)
+                                        .foregroundColor(option.1.color)
+                                )
+                            
+                            Text(option.0)
+                                .font(.caption.bold())
+                                .foregroundColor(.primary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            
+            Spacer()
+        }
+        .background(Color.white)
+    }
+    
+    private func submitReport(status: LocationReport.ReportStatus) {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        onReport(status)
+        dismiss()
     }
 }
 

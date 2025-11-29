@@ -163,7 +163,7 @@ extension ToiletLocation {
         // 第一層：按地址分組
         let addressGroups = Dictionary(grouping: toilets) { $0.address }
         
-        var locations: [ToiletLocation] = []
+        var initialLocations: [ToiletLocation] = []
         
         for (address, addressToilets) in addressGroups {
             let validToilets = addressToilets.filter { $0.correctedCoordinate != nil }
@@ -174,7 +174,7 @@ extension ToiletLocation {
             let centerLat = coordinates.map { $0.latitude }.reduce(0, +) / Double(coordinates.count)
             let centerLon = coordinates.map { $0.longitude }.reduce(0, +) / Double(coordinates.count)
             
-            // 同一地址的廁所全部合併成一個地點（不再檢查座標距離）
+            // 同一地址的廁所全部合併成一個地點
             let floorGroups = groupByFloor(validToilets)
             
             let location = ToiletLocation(
@@ -185,10 +185,68 @@ extension ToiletLocation {
                 administration: validToilets.first?.administration ?? "",
                 toiletsByFloor: floorGroups
             )
-            locations.append(location)
+            initialLocations.append(location)
         }
         
-        return locations
+        // 第二層：座標合併（處理地址寫法不同但實際位置相同的情況）
+        // 閾值：20公尺 (0.0002 約為 20m)
+        let mergeThreshold = 20.0
+        var finalLocations: [ToiletLocation] = []
+        var mergedIndices: Set<Int> = []
+        
+        for i in 0..<initialLocations.count {
+            if mergedIndices.contains(i) { continue }
+            
+            var currentLocation = initialLocations[i]
+            var mergedToilets = currentLocation.allToilets
+            mergedIndices.insert(i)
+            
+            for j in (i + 1)..<initialLocations.count {
+                if mergedIndices.contains(j) { continue }
+                
+                let otherLocation = initialLocations[j]
+                let distance = calculateDistance(
+                    lat1: currentLocation.latitude, lon1: currentLocation.longitude,
+                    lat2: otherLocation.latitude, lon2: otherLocation.longitude
+                )
+                
+                // 如果距離夠近，視為同一地點進行合併
+                if distance < mergeThreshold {
+                    print("🔄 [合併偵測] 發現重疊地點：")
+                    print("   主地點：\(currentLocation.name) (座標: \(currentLocation.latitude), \(currentLocation.longitude))")
+                    print("   副地點：\(otherLocation.name) (座標: \(otherLocation.latitude), \(otherLocation.longitude))")
+                    print("   距離：\(String(format: "%.2f", distance)) 公尺")
+                    
+                    mergedToilets.append(contentsOf: otherLocation.allToilets)
+                    mergedIndices.insert(j)
+                }
+            }
+            
+            // 如果有合併發生，重新建立 Location 物件
+            if mergedToilets.count > currentLocation.allToilets.count {
+                print("✅ [合併執行] 成功合併 \(mergedToilets.count) 間廁所到地點：\(currentLocation.name)")
+                let floorGroups = groupByFloor(mergedToilets)
+                
+                // 重新計算中心點
+                let validToilets = mergedToilets.filter { $0.correctedCoordinate != nil }
+                let coordinates = validToilets.compactMap { $0.correctedCoordinate }
+                let newLat = coordinates.map { $0.latitude }.reduce(0, +) / Double(coordinates.count)
+                let newLon = coordinates.map { $0.longitude }.reduce(0, +) / Double(coordinates.count)
+                
+                currentLocation = ToiletLocation(
+                    name: extractLocationName(from: mergedToilets),
+                    address: currentLocation.address, // 使用第一個地址
+                    latitude: newLat,
+                    longitude: newLon,
+                    administration: currentLocation.administration,
+                    toiletsByFloor: floorGroups
+                )
+            }
+            
+            finalLocations.append(currentLocation)
+        }
+        
+        return finalLocations
     }
     
     // 清理地點名稱（移除樓層、廁所類型等資訊）
