@@ -22,6 +22,7 @@ class ToiletDataManager: ObservableObject {
     @Published var selectedToilet: ToiletInfo?
     
     private let jsonFileName = "toilet"
+    private let optimizedJsonFileName = "toilet_locations"
     private var coordinateCache: [String: (latitude: Double, longitude: Double)] = [:]
     
     // 區域載入緩存（提升性能）
@@ -29,37 +30,83 @@ class ToiletDataManager: ObservableObject {
     private let cacheQueue = DispatchQueue(label: "com.country.toilet.cache")
     
     init() {
-        loadToiletData()
+        // init 時不載入資料，等待 View 來呼叫 loadToiletData
     }
     
     // 載入公廁資料
     func loadToiletData() {
-        isLoading = true
-        errorMessage = nil
+        // 如果正在載入，不要重複執行
+        guard !isLoading else { return }
         
-        guard let url = Bundle.main.url(forResource: jsonFileName, withExtension: "json") else {
-            errorMessage = LocalizedStrings.fileNotFound.localized
-            isLoading = false
-            return
+        // 在主執行緒設置載入狀態
+        DispatchQueue.main.async {
+            self.isLoading = true
+            self.errorMessage = nil
         }
         
-        do {
-            let data = try Data(contentsOf: url)
-            let decoder = JSONDecoder()
-            toilets = try decoder.decode([ToiletInfo].self, from: data)
+        // 切換到背景執行緒進行耗時操作
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
             
-            // 群組廁所資料為地點
-            locations = ToiletLocation.createFromToilets(toilets)
-            filteredLocations = locations
+            // 1. 嘗試載入預處理過的優化資料
+            if let optimizedUrl = Bundle.main.url(forResource: self.optimizedJsonFileName, withExtension: "json") {
+                do {
+                    print("發現優化資料，開始載入...")
+                    let data = try Data(contentsOf: optimizedUrl)
+                    let decoder = JSONDecoder()
+                    let loadedLocations = try decoder.decode([ToiletLocation].self, from: data)
+                    
+                    // 從地點還原出所有廁所列表 (如果需要的話)
+                    let loadedToilets = loadedLocations.flatMap { $0.allToilets }
+                    
+                    DispatchQueue.main.async {
+                        self.locations = loadedLocations
+                        self.filteredLocations = loadedLocations
+                        self.toilets = loadedToilets
+                        self.isLoading = false
+                        print("成功從優化檔載入 \(loadedLocations.count) 個地點，\(loadedToilets.count) 筆公廁資料")
+                    }
+                    return // 成功載入優化檔，直接結束
+                } catch {
+                    print("載入優化資料失敗，嘗試載入原始資料: \(error)")
+                    // 失敗則繼續往下嘗試載入原始資料
+                }
+            }
             
-            isLoading = false
-            print("成功載入 \(toilets.count) 筆公廁資料")
-            print("群組後：\(locations.count) 個地點")
-            print("多樓層地點：\(locations.filter { $0.hasMultipleFloors }.count) 個")
-        } catch {
-            errorMessage = "\(LocalizedStrings.dataLoadFailed.localized): \(error.localizedDescription)"
-            isLoading = false
-            print("載入公廁資料錯誤: \(error)")
+            // 2. 載入原始資料（Fallback）
+            guard let url = Bundle.main.url(forResource: self.jsonFileName, withExtension: "json") else {
+                DispatchQueue.main.async {
+                    self.errorMessage = LocalizedStrings.fileNotFound.localized
+                    self.isLoading = false
+                }
+                return
+            }
+            
+            do {
+                let data = try Data(contentsOf: url)
+                let decoder = JSONDecoder()
+                let loadedToilets = try decoder.decode([ToiletInfo].self, from: data)
+                
+                // 耗時操作：群組廁所資料為地點
+                print("開始計算地點群組...")
+                let loadedLocations = ToiletLocation.createFromToilets(loadedToilets)
+                
+                DispatchQueue.main.async {
+                    self.toilets = loadedToilets
+                    self.locations = loadedLocations
+                    self.filteredLocations = loadedLocations
+                    self.isLoading = false
+                    
+                    print("成功載入原始資料：\(loadedToilets.count) 筆公廁")
+                    print("即時群組後：\(loadedLocations.count) 個地點")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = "\(LocalizedStrings.dataLoadFailed.localized): \(error.localizedDescription)"
+                    self.isLoading = false
+                }
+                print("載入公廁資料錯誤: \(error)")
+            }
         }
     }
     
@@ -610,85 +657,7 @@ class ToiletDataManager: ObservableObject {
                 }
             }
             
-            print("\n包含樓層關鍵字的廁所：")
-            for toilet in toiletsWithFloor.prefix(5) {
-                print("- \(toilet.name)")
-            }
-            
-            // 測試樓層識別函數
-            print("\n=== 樓層識別測試 ===")
-            for toilet in toiletsWithFloor.prefix(3) {
-                let floorInfo = ToiletLocation.extractFloorInfo(from: toilet.name)
-                print("廁所：\(toilet.name)")
-                print("  樓層名稱：\(floorInfo.floorName)")
-                print("  樓層順序：\(floorInfo.floorOrder)")
-            }
-            
-            // 檢查群組過程
-            print("\n=== 群組過程檢查 ===")
-            let addressGroups = Dictionary(grouping: testToilets) { $0.address }
-            
-            // 檢查所有地址
-            print("所有地址分佈：")
-            for (address, addressToilets) in addressGroups {
-                let hasFloorInfo = addressToilets.contains { toilet in
-                    floorKeywords.contains { keyword in
-                        toilet.name.contains(keyword)
-                    }
-                }
-                print("地址：\(address)")
-                print("  廁所數：\(addressToilets.count)")
-                print("  有樓層資訊：\(hasFloorInfo)")
-                
-                if hasFloorInfo {
-                    print("  廁所列表：")
-                    for toilet in addressToilets {
-                        let floorInfo = ToiletLocation.extractFloorInfo(from: toilet.name)
-                        print("    - \(toilet.name) -> \(floorInfo.floorName)")
-                    }
-                }
-                print("")
-            }
-            
-            // 檢查是否有相同地點名稱但不同地址的情況
-            print("\n=== 地點名稱檢查 ===")
-            let nameGroups = Dictionary(grouping: testToilets) { toilet in
-                // 提取地點名稱（移除樓層和廁所類型）
-                let name = toilet.name
-                let patternsToRemove = [
-                    "-[男女無障礙混合性別友善親子通用廁所]+", // -男廁, -女廁, -無障礙廁所, -混合廁所, -性別友善廁所, -親子廁所, -通用廁所
-                    "([0-9]+F)", // 1F, 2F
-                    "([0-9]+樓)", // 1樓, 2樓
-                    "(B[0-9]+)", // B1, B2
-                    "(地下[0-9]+樓)", // 地下1樓
-                    "([0-9]+層)" // 1層, 2層
-                ]
-                
-                var cleanedName = name
-                for pattern in patternsToRemove {
-                    if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                        cleanedName = regex.stringByReplacingMatches(in: cleanedName, range: NSRange(cleanedName.startIndex..., in: cleanedName), withTemplate: "")
-                    }
-                }
-                return cleanedName.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            
-            for (locationName, toilets) in nameGroups {
-                if toilets.count > 1 {
-                    print("地點：\(locationName)")
-                    print("  廁所數：\(toilets.count)")
-                    print("  地址：")
-                    for toilet in toilets {
-                        print("    - \(toilet.address)")
-                    }
-                    print("  廁所列表：")
-                    for toilet in toilets {
-                        let floorInfo = ToiletLocation.extractFloorInfo(from: toilet.name)
-                        print("    - \(toilet.name) -> \(floorInfo.floorName)")
-                    }
-                    print("")
-                }
-            }
+            // ... more code ...
         }
         
         print("=== 快速測試完成 ===")

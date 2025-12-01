@@ -38,108 +38,123 @@ struct ContentView: View {
     @State private var shouldEnableClustering: Bool = true // 根據地圖縮放動態啟用標記聚合
 
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .topLeading) {
-            // 地圖視圖
-            MapView(region: $region, mapType: mapType, userLocation: locationManager.location, toilets: mapToilets, locations: mapLocations, shouldJumpToLocation: $shouldJumpToLocation, onRegionChanged: { newRegion in
-                // 地圖區域變化時動態載入公廁（但不會觸發跳回）
-                updateToiletsForMapRegion(newRegion)
-            }, shouldUpdateRegion: shouldUpdateMapRegion, onToiletSelected: { toilet in
-                // 當公廁被選中時，傳遞給 ToiletView 處理
-                selectedToilet = toilet
-            }, onLocationSelected: { location in
-                // 當地點被選中時，直接選擇地點
-                selectedLocation = location
-                selectedToilet = nil // 清空廁所選擇
-            }, shouldEnableClustering: shouldEnableClustering)
-                .edgesIgnoringSafeArea(.all)
-
-            // 頂部漸層模糊
-            VStack(spacing: 0) {
-                navigationBarGradientOverlay
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 180)
-                    .ignoresSafeArea(edges: .top)
-                Spacer()
-            }
-            .allowsHitTesting(false)
-
-            // 左側按鈕組
-            VStack(alignment: .leading, spacing: 12) {
-                // 測試按鈕已隱藏
-                // Button(action: {
-                //     toiletDataManager.quickTest()
-                // }) {
-                //     Image(systemName: "testtube.2")
-                //         .font(.title2)
-                //         .foregroundColor(.white)
-                //         .frame(width: 44, height: 44)
-                //         .background(Color.blue)
-                //         .clipShape(Circle())
-                //         .shadow(radius: 4)
-                // }
-                
-                // 定位按鈕
-                Button(action: {
-                    // 直接處理定位，不依賴 onChange 監聽器
-                    handleLocationButtonTap()
-                }) {
-                    Image(systemName: "location.fill")
-                        .foregroundColor(.blue)
-                        .font(.customRounded(15, weight: .heavy))
-                        .frame(width: 40, height: 40)
+        ZStack {
+            if toiletDataManager.isLoading {
+                LoadingView()
+                    .transition(.opacity)
+                    .zIndex(10) // 確保在最上層
+            } else {
+                NavigationStack {
+                    ZStack(alignment: .topLeading) {
+                    // 地圖視圖
+                    MapView(region: $region, mapType: mapType, userLocation: locationManager.location, toilets: mapToilets, locations: mapLocations, shouldJumpToLocation: $shouldJumpToLocation, onRegionChanged: { newRegion in
+                        // 地圖區域變化時動態載入公廁（但不會觸發跳回）
+                        updateToiletsForMapRegion(newRegion)
+                    }, shouldUpdateRegion: shouldUpdateMapRegion, onToiletSelected: { toilet in
+                        // 當公廁被選中時，傳遞給 ToiletView 處理
+                        selectedToilet = toilet
+                    }, onLocationSelected: { location in
+                        // 當地點被選中時，直接選擇地點
+                        selectedLocation = location
+                        selectedToilet = nil // 清空廁所選擇
+                    }, shouldEnableClustering: shouldEnableClustering)
+                        .edgesIgnoringSafeArea(.all)
+        
+                    // 頂部漸層模糊
+                    VStack(spacing: 0) {
+                        navigationBarGradientOverlay
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 180)
+                            .ignoresSafeArea(edges: .top)
+                        Spacer()
+                    }
+                    .allowsHitTesting(false)
+        
+                    // 左側按鈕組
+                    VStack(alignment: .leading, spacing: 12) {
+                        // 測試按鈕已隱藏
+                        // Button(action: {
+                        //     toiletDataManager.quickTest()
+                        // }) {
+                        //     Image(systemName: "testtube.2")
+                        //         .font(.title2)
+                        //         .foregroundColor(.white)
+                        //         .frame(width: 44, height: 44)
+                        //         .background(Color.blue)
+                        //         .clipShape(Circle())
+                        //         .shadow(radius: 4)
+                        // }
+                        
+                        // 定位按鈕
+                        Button(action: {
+                            // 直接處理定位，不依賴 onChange 監聽器
+                            handleLocationButtonTap()
+                        }) {
+                            Image(systemName: "location.fill")
+                                .foregroundColor(.blue)
+                                .font(.customRounded(15, weight: .heavy))
+                                .frame(width: 40, height: 40)
+                        }
+                        
+                        // 地圖樣式切換（暫時不限制 Premium）
+                        Button(action: {
+                            mapType = (mapType == .standard) ? .satellite : .standard
+                        }) {
+                            let isSatellite = mapType == .satellite
+                            Image(systemName: isSatellite ? "globe.asia.australia.fill" : "map.fill")
+                            .font(.customRounded(16, weight: .heavy))
+                                .frame(width: 40, height: 40)
+                                .foregroundColor(.black)
+                        }
+                        
+                    }
+                    .background(mapControlsGlassBackground)
+                    .cornerRadius(15)
+                    .padding(.leading, 12) // 距離左邊的間距
+                    .padding(.top, 40) // 距離頂部的間距
+                    
                 }
-                
-                // 地圖樣式切換（暫時不限制 Premium）
-                Button(action: {
-                    mapType = (mapType == .standard) ? .satellite : .standard
-                }) {
-                    let isSatellite = mapType == .satellite
-                    Image(systemName: isSatellite ? "globe.asia.australia.fill" : "map.fill")
-                        .font(.customRounded(16, weight: .heavy))
-                        .frame(width: 40, height: 40)
-                        .foregroundColor(.black)
+                .onAppear {
+                    // 強制設定為直向
+                    UIDevice.current.setValue(UIInterfaceOrientation.portrait.rawValue, forKey: "orientation")
+                    
+                    // 初始載入時根據目前地圖範圍更新廁所和聚類狀態
+                    updateToiletsForMapRegion(region)
+                    
+                    // 打開 app 後自動定位到目前位置（只執行一次）
+                    if !hasAutoLocated {
+                        hasAutoLocated = true
+                        autoLocateCurrentPosition()
+                    }
                 }
-                
+                .sheet(isPresented: $sheetPresented) {
+                    HomeSheetView(
+                        selectedDetent: $selectedDetent,
+                        locationManager: locationManager,
+                        toiletDataManager: toiletDataManager, // 傳遞已載入資料的 manager
+                        mapToilets: $mapToilets,
+                        mapLocations: $mapLocations,
+                        selectedToiletFromMap: $selectedToilet,
+                        selectedLocationFromMap: $selectedLocation
+                    )
+                    .environmentObject(premiumManager)
+                    .presentationDetents([.height(200), .medium, .large], selection: $selectedDetent)
+                    .presentationBackgroundInteraction(.enabled)
+                    .presentationDragIndicator(.hidden)
+                    .presentationCompactAdaptation(.sheet)
+                    .presentationContentInteraction(.scrolls)
+                    .presentationBackground(Color.white.opacity(0.2))
+                    .interactiveDismissDisabled()
+                }
+                }
+                .zIndex(1)
             }
-            .background(mapControlsGlassBackground)
-            .cornerRadius(15)
-            .padding(.leading, 12) // 距離左邊的間距
-            .padding(.top, 40) // 距離頂部的間距
-            
         }
         .onAppear {
-            // 強制設定為直向
-            UIDevice.current.setValue(UIInterfaceOrientation.portrait.rawValue, forKey: "orientation")
-            
-            // 初始載入時根據目前地圖範圍更新廁所和聚類狀態
-            updateToiletsForMapRegion(region)
-            
-            // 打開 app 後自動定位到目前位置（只執行一次）
-            if !hasAutoLocated {
-                hasAutoLocated = true
-                autoLocateCurrentPosition()
-            }
+            // 啟動時開始載入資料
+            toiletDataManager.loadToiletData()
         }
-        .sheet(isPresented: $sheetPresented) {
-            HomeSheetView(
-                selectedDetent: $selectedDetent,
-                locationManager: locationManager,
-                mapToilets: $mapToilets,
-                mapLocations: $mapLocations,
-                selectedToiletFromMap: $selectedToilet,
-                selectedLocationFromMap: $selectedLocation
-            )
-            .environmentObject(premiumManager)
-            .presentationDetents([.height(200), .medium, .large], selection: $selectedDetent)
-            .presentationBackgroundInteraction(.enabled)
-            .presentationDragIndicator(.hidden)
-            .presentationCompactAdaptation(.sheet)
-            .presentationContentInteraction(.scrolls)
-            .presentationBackground(Color.white.opacity(0.2))
-            .interactiveDismissDisabled()
-        }
-        }
+        .animation(.easeInOut(duration: 0.5), value: toiletDataManager.isLoading)
     }
     
     // 自動定位到目前位置（app 啟動時）

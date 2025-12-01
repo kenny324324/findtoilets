@@ -15,7 +15,7 @@ struct HomeSheetView: View {
     @State private var showNearbyList: Bool = false
     @State private var nearbyListDetent: PresentationDetent = .medium
     @ObservedObject var locationManager: LocationManager
-    @StateObject private var toiletDataManager = ToiletDataManager() // 預先載入數據管理器
+    @ObservedObject var toiletDataManager: ToiletDataManager // 改為 ObservedObject，接收外部傳入的實例
     @Binding var mapToilets: [ToiletInfo]
     @Binding var mapLocations: [ToiletLocation]
     @Binding var selectedToiletFromMap: ToiletInfo?
@@ -1483,6 +1483,7 @@ struct RecentlyViewedSection: View {
     HomeSheetView(
         selectedDetent: .constant(.medium),
         locationManager: LocationManager(),
+        toiletDataManager: ToiletDataManager(),
         mapToilets: .constant([]),
         mapLocations: .constant([]),
         selectedToiletFromMap: .constant(nil),
