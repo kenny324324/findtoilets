@@ -360,52 +360,58 @@ struct LocationDetailView: View {
                             Spacer()
                         }
                         
-                        // 導航與回報按鈕區域
+                        // 導航按鈕區域
                         HStack(spacing: 12) {
-                            // 1. 導航按鈕
-                            Button(action: { showingMapOptions = true }) {
-                                VStack(spacing: 6) {
-                                    Image(systemName: "figure.walk")
-                                        .font(.subheadlineRounded())
-                                        .foregroundColor(.white)
-                                        .frame(width: 16, height: 16)
-                                    
-                                    if isCalculatingDistance {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                            .scaleEffect(0.8)
-                                    } else if walkingTimeMinutes > 0 {
-                                        Text(formatWalkingTime(walkingTimeMinutes))
-                                            .font(.captionRounded(.semibold))
-                                            .foregroundColor(.white)
-                                    } else {
-                                        Text(LocalizedStrings.calculating.localized)
-                                            .font(.captionRounded(.semibold))
-                                            .foregroundColor(.white)
+                            // 導航按鈕
+                            if #available(iOS 26.0, *) {
+                                Button(action: { showingMapOptions = true }) {
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "figure.walk")
+                                            .font(.system(size: 16, weight: .semibold))
+                                        
+                                        if isCalculatingDistance {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .scaleEffect(0.8)
+                                        } else if walkingTimeMinutes > 0 {
+                                            Text(formatWalkingTime(walkingTimeMinutes))
+                                                .font(.system(size: 12, weight: .semibold))
+                                        } else {
+                                            Text(LocalizedStrings.calculating.localized)
+                                                .font(.system(size: 12, weight: .semibold))
+                                        }
                                     }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 0)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(Color.blue)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
-                            }
-                            
-                            // 2. 回報按鈕 (舊版) -> 改為快速評分入口
-                            Button(action: { showingReviewInput = true }) {
-                                VStack(spacing: 6) {
-                                    Image(systemName: "star.bubble.fill")
-                                        .font(.subheadlineRounded())
-                                        .foregroundColor(.white)
-                                        .frame(width: 16, height: 16)
-                                    
-                                    Text("評論打分")
-                                        .font(.captionRounded(.semibold))
-                                        .foregroundColor(.white)
+                                .buttonStyle(.glassProminent)
+                                .tint(.blue)
+                            } else {
+                                Button(action: { showingMapOptions = true }) {
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "figure.walk")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundColor(.white)
+                                        
+                                        if isCalculatingDistance {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .scaleEffect(0.8)
+                                        } else if walkingTimeMinutes > 0 {
+                                            Text(formatWalkingTime(walkingTimeMinutes))
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(.white)
+                                        } else {
+                                            Text(LocalizedStrings.calculating.localized)
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 0)
+                                    .background(Color.blue)
+                                    .clipShape(Capsule())
                                 }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(Color.orange)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
                             }
                         }
                     }
@@ -653,6 +659,26 @@ struct LocationDetailView: View {
                             .foregroundColor(.gray)
                     }
                 }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if #available(iOS 26.0, *) {
+                        Button(action: { showingReviewInput = true }) {
+                            Image(systemName: "plus.message.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(.orange)
+                    } else {
+                        Button(action: { showingReviewInput = true }) {
+                            Image(systemName: "plus.message.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Color.orange)
+                                .clipShape(Circle())
+                        }
+                    }
+                }
             }
         }
         .background(Color.clear)
@@ -820,24 +846,39 @@ struct LocationDetailView: View {
 struct CommunityReviewSection: View {
     let reviews: [LocationReport]
     let onAddReview: () -> Void
+    @State private var showingAllReviews: Bool = false // 控制顯示所有評論的 sheet
+    
+    // 固定只顯示最新3筆
+    private var displayedReviews: [LocationReport] {
+        return Array(reviews.prefix(3))
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // 標題與新增按鈕
+            // 標題與箭頭按鈕
             HStack {
-                Text("社群評論")
-                    .font(.title3Rounded(.bold))
+                // 只有超過3筆評論時，整個標題區域才可點擊
+                if reviews.count > 3 {
+                    Button(action: {
+                        showingAllReviews = true
+                    }) {
+                        HStack(spacing: 8) {
+                            Text("評論")
+                                .font(.title3Rounded(.bold))
+                                .foregroundColor(.primary)
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.subheadlineRounded(.semibold))
+                                .foregroundColor(.primary)
+                        }
+                    }
+                } else {
+                    // 評論少於等於3筆時，只顯示標題不可點擊
+                    Text("評論")
+                        .font(.title3Rounded(.bold))
+                }
                 
                 Spacer()
-                
-                Button(action: onAddReview) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus.bubble")
-                        Text("撰寫評論")
-                    }
-                    .font(.subheadlineRounded(.semibold))
-                    .foregroundColor(.blue)
-                }
             }
             .padding(.horizontal, 20)
             
@@ -857,12 +898,12 @@ struct CommunityReviewSection: View {
                 .cornerRadius(16)
                 .padding(.horizontal, 20)
             } else {
-                // 評論列表
+                // 評論列表（固定顯示最新3筆）
                 VStack(spacing: 16) {
-                    ForEach(reviews) { review in
+                    ForEach(displayedReviews) { review in
                         ReviewRow(review: review)
                         
-                        if review.id != reviews.last?.id {
+                        if review.id != displayedReviews.last?.id {
                             Divider()
                                 .padding(.leading, 20)
                         }
@@ -870,6 +911,9 @@ struct CommunityReviewSection: View {
                 }
                 .padding(.horizontal, 20)
             }
+        }
+        .sheet(isPresented: $showingAllReviews) {
+            AllReviewsSheet(reviews: reviews, onAddReview: onAddReview)
         }
     }
 }
@@ -961,6 +1005,69 @@ struct ReviewRow: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+// MARK: - 所有評論 Sheet
+
+struct AllReviewsSheet: View {
+    let reviews: [LocationReport]
+    let onAddReview: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    ForEach(reviews) { review in
+                        ReviewRow(review: review)
+                            .padding(.horizontal, 20)
+                        
+                        if review.id != reviews.last?.id {
+                            Divider()
+                                .padding(.horizontal, 20)
+                        }
+                    }
+                }
+                .padding(.vertical, 20)
+            }
+            .navigationTitle("所有評論")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.gray)
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if #available(iOS 26.0, *) {
+                        Button(action: {
+                            dismiss()
+                            onAddReview()
+                        }) {
+                            Image(systemName: "plus.message.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(.orange)
+                    } else {
+                        Button(action: {
+                            dismiss()
+                            onAddReview()
+                        }) {
+                            Image(systemName: "plus.message.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Color.orange)
+                                .clipShape(Circle())
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
