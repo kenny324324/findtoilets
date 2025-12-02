@@ -11,24 +11,53 @@ import CoreLocation
 import UIKit
 
 // 回報資料結構
-struct LocationReport: Identifiable {
-    let id = UUID()
-    let status: ReportStatus
+struct LocationReport: Identifiable, Codable {
+    let id: UUID
+    let locationId: UUID // 關聯到地點
+    let type: ReportType
+    let rating: Int // 1-5 星
+    let content: String? // 文字評論（可選）
     let time: Date
-    let user: String
+    let userId: String // 匿名 ID
+    let userNickname: String // 匿名暱稱
     
-    enum ReportStatus: String {
+    init(locationId: UUID, type: ReportType, rating: Int, content: String? = nil, userNickname: String) {
+        self.id = UUID()
+        self.locationId = locationId
+        self.type = type
+        self.rating = rating
+        self.content = content
+        self.time = Date()
+        self.userId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        self.userNickname = userNickname
+    }
+    
+    // 用於假資料
+    init(id: UUID = UUID(), locationId: UUID = UUID(), type: ReportType, rating: Int, content: String? = nil, time: Date, userNickname: String) {
+        self.id = id
+        self.locationId = locationId
+        self.type = type
+        self.rating = rating
+        self.content = content
+        self.time = time
+        self.userId = "dummy_user"
+        self.userNickname = userNickname
+    }
+    
+    enum ReportType: String, Codable, CaseIterable {
         case clean = "乾淨舒適"
+        case normal = "普通尚可"
+        case dirty = "髒亂異味"
         case noPaper = "缺衛生紙"
-        case dirty = "髒亂"
         case maintenance = "維修中"
         case crowded = "排隊人多"
         
         var icon: String {
             switch self {
             case .clean: return "sparkles"
-            case .noPaper: return "scroll"
+            case .normal: return "hand.thumbsup"
             case .dirty: return "exclamationmark.triangle"
+            case .noPaper: return "scroll"
             case .maintenance: return "hammer"
             case .crowded: return "person.3.fill"
             }
@@ -37,12 +66,49 @@ struct LocationReport: Identifiable {
         var color: Color {
             switch self {
             case .clean: return .green
-            case .noPaper: return .orange
+            case .normal: return .blue
             case .dirty: return .brown
+            case .noPaper: return .orange
             case .maintenance: return .red
-            case .crowded: return .blue
+            case .crowded: return .purple
             }
         }
+        
+        var defaultRating: Int {
+            switch self {
+            case .clean: return 5
+            case .normal: return 3
+            case .dirty: return 1
+            case .noPaper: return 2
+            case .maintenance: return 1
+            case .crowded: return 2
+            }
+        }
+    }
+}
+
+// 評論管理器 (模擬後端)
+class ReviewManager: ObservableObject {
+    @Published var reviews: [UUID: [LocationReport]] = [:] // locationId -> reports
+    
+    init() {
+        // 載入一些假資料
+        loadDummyData()
+    }
+    
+    func addReview(_ report: LocationReport) {
+        if reviews[report.locationId] == nil {
+            reviews[report.locationId] = []
+        }
+        reviews[report.locationId]?.insert(report, at: 0)
+    }
+    
+    func getReviews(for locationId: UUID) -> [LocationReport] {
+        return reviews[locationId] ?? []
+    }
+    
+    private func loadDummyData() {
+        // 這裡之後可以接真實 API
     }
 }
 
@@ -50,6 +116,7 @@ struct LocationDetailView: View {
     let location: ToiletLocation
     @Environment(\.dismiss) private var dismiss
     @StateObject private var locationManager = LocationManager()
+    @StateObject private var reviewManager = ReviewManager() // 引入評論管理器
     @State private var walkingTimeMinutes: Int = 0
     @State private var isCalculatingDistance: Bool = false
     @State private var showingMapOptions = false
@@ -59,11 +126,10 @@ struct LocationDetailView: View {
     
     // 回報相關 State
     @State private var showingReportSheet = false
-    @State private var recentReports: [LocationReport] = [
-        // 假資料：模擬社群回報
-        LocationReport(status: .clean, time: Date().addingTimeInterval(-1800), user: "路人A"),
-        LocationReport(status: .noPaper, time: Date().addingTimeInterval(-7200), user: "熱心民眾")
-    ]
+    
+    // 評論輸入相關 State
+    @State private var showingReviewInput = false
+    @State private var userNickname: String = UserDefaults.standard.string(forKey: "UserNickname") ?? "熱心路人"
     
     // 初始化選中的樓層
     init(location: ToiletLocation, locationDetailDetent: Binding<PresentationDetent>) {
@@ -304,15 +370,15 @@ struct LocationDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                             }
                             
-                            // 2. 回報按鈕
-                            Button(action: { showingReportSheet = true }) {
+                            // 2. 回報按鈕 (舊版) -> 改為快速評分入口
+                            Button(action: { showingReviewInput = true }) {
                                 VStack(spacing: 6) {
-                                    Image(systemName: "bullhorn.fill")
+                                    Image(systemName: "star.bubble.fill")
                                         .font(.subheadlineRounded())
                                         .foregroundColor(.white)
                                         .frame(width: 16, height: 16)
                                     
-                                    Text("回報狀況")
+                                    Text("評論打分")
                                         .font(.captionRounded(.semibold))
                                         .foregroundColor(.white)
                                 }
@@ -327,53 +393,8 @@ struct LocationDetailView: View {
                     .padding(.top, 20)
                     .padding(.bottom, 20)
                     
-                    // 社群即時情報區塊
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("即時情報")
-                                .font(.title3Rounded(.semibold))
-                            Spacer()
-                            Text("\(recentReports.count) 則回報")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                // 預留：這裡可以插入一個小型的 AdMob Native Ad
-                                // NativeAdCard()
-                                
-                                ForEach(recentReports) { report in
-                                    HStack(spacing: 12) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(report.status.color.opacity(0.1))
-                                                .frame(width: 40, height: 40)
-                                            Image(systemName: report.status.icon)
-                                                .foregroundColor(report.status.color)
-                                        }
-                                        
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(report.status.rawValue)
-                                                .font(.subheadline.bold())
-                                                .foregroundColor(report.status.color)
-                                            Text("\(report.user) • \(timeAgoDisplay(date: report.time))")
-                                                .font(.caption2)
-                                                .foregroundColor(.gray)
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(Color(.systemGray6))
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-                    }
-                    .padding(.bottom, 20)
                     
-                    // 多樓層選擇器
+                    // 多樓層選擇器 (優化版：膠囊樣式)
                     if location.hasMultipleFloors {
                         VStack(spacing: 12) {
                             HStack {
@@ -385,25 +406,20 @@ struct LocationDetailView: View {
                             }
                             
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
+                                HStack(spacing: 8) { // 減少間距
                                     ForEach(location.toiletsByFloor.sorted(by: { $0.floorOrder < $1.floorOrder }), id: \.floorName) { floorInfo in
                                         Button(action: {
                                             selectedFloor = floorInfo.floorName
                                             selectedToilet = nil
                                         }) {
-                                            VStack(spacing: 4) {
-                                                Text(floorInfo.floorName)
-                                                    .font(.headlineRounded(.semibold))
-                                                    .foregroundColor(selectedFloor == floorInfo.floorName ? .blue : .primary)
-                                                
-                                                Text(LocalizedStrings.toiletCount.localized(floorInfo.toiletCount))
-                                                    .font(.captionRounded())
-                                                    .foregroundColor(selectedFloor == floorInfo.floorName ? .blue.opacity(0.8) : .secondary)
-                                            }
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 12)
-                                            .background(selectedFloor == floorInfo.floorName ? Color.blue.opacity(0.2) : Color.gray.opacity(0.1))
-                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                            // 膠囊樣式
+                                            Text(floorInfo.floorName)
+                                                .font(.subheadlineRounded(.bold))
+                                                .foregroundColor(selectedFloor == floorInfo.floorName ? .blue : .primary)
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 8) // 減少垂直 padding
+                                                .background(selectedFloor == floorInfo.floorName ? Color.blue.opacity(0.2) : Color.gray.opacity(0.1))
+                                                .clipShape(Capsule()) // 改為圓形膠囊
                                         }
                                     }
                                 }
@@ -413,73 +429,45 @@ struct LocationDetailView: View {
                         .padding(.bottom, 20)
                     }
                     
-                    // 廁所類型展示
+                    // 廁所類型展示 (優化版：圖示標籤)
                     VStack(spacing: 12) {
                         HStack {
                             Text(LocalizedStrings.availableTypes.localized)
-                                .font(.title3Rounded(.semibold))
-                                .foregroundColor(.primary)
+                            .font(.title3Rounded(.semibold))
+                            .foregroundColor(.primary)
                             Spacer()
                         }
+                        .padding(.horizontal, 20) // 標題補上 padding
                         
-                        if availableTypes.count > 4 {
-                            // 超過4個類型時使用滾動
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
-                                    ForEach(availableTypes, id: \.self) { type in
-                                        HStack(spacing: 6) {
-                                            Image(systemName: getIconName(for: type))
-                                                .font(.customRounded(16))
-                                                .foregroundColor(getColor(for: type))
-                                            
-                                            Text(getLocalizedTypeName(for: type))
-                                                .font(.customRounded(16))
-                                                .foregroundColor(.primary)
-                                            
-                                            Text("\(currentFloorToilets.filter { $0.type == type }.count)")
-                                                .font(.customRounded(12))
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(getColor(for: type).opacity(0.1))
-                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) { // 減少間距
+                                ForEach(availableTypes, id: \.self) { type in
+                                    HStack(spacing: 4) { // 內容更緊湊
+                                        Image(systemName: getIconName(for: type))
+                                            .font(.customRounded(14))
+                                            .foregroundColor(getColor(for: type))
+                                        
+                                        Text(getLocalizedTypeName(for: type))
+                                            .font(.customRounded(14))
+                                            .foregroundColor(.primary)
+                                        
+                                        Text("\(currentFloorToilets.filter { $0.type == type }.count)間") // 改為顯示 "x間"
+                                            .font(.customRounded(12))
+                                            .foregroundColor(.secondary)
                                     }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(getColor(for: type).opacity(0.1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 8)) // 稍微方一點的圓角
                                 }
-                                .padding(.horizontal, 0)
                             }
-                        } else {
-                            // 4個或以下時使用橫向排列
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
-                                    ForEach(availableTypes, id: \.self) { type in
-                                        HStack(spacing: 6) {
-                                            Image(systemName: getIconName(for: type))
-                                                .font(.customRounded(16))
-                                                .foregroundColor(getColor(for: type))
-                                            
-                                            Text(getLocalizedTypeName(for: type))
-                                                .font(.customRounded(16))
-                                                .foregroundColor(.primary)
-                                            
-                                            Text("\(currentFloorToilets.filter { $0.type == type }.count)")
-                                                .font(.customRounded(12))
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(getColor(for: type).opacity(0.1))
-                                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                                    }
-                                }
-                                .padding(.horizontal, 0)
-                            }
+                            .padding(.horizontal, 20)
                         }
                     }
-                    .padding(.horizontal, 20)
                     .padding(.bottom, 20)
+                    // 移除外層的 .padding(.horizontal, 20)
                     
-                    // 該樓層區域（只在有多個區域時顯示）
+                    // 該樓層區域 (優化版：文字標籤)
                     if currentFloorAreas.count > 1 || (currentFloorAreas.count == 1 && !currentFloorAreas[0].area.isEmpty) {
                         VStack(spacing: 12) {
                             HStack {
@@ -488,35 +476,35 @@ struct LocationDetailView: View {
                                     .foregroundColor(.primary)
                                 Spacer()
                             }
+                            .padding(.horizontal, 20) // 標題補上 padding
                             
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
+                                HStack(spacing: 8) {
                                     ForEach(currentFloorAreas, id: \.area) { areaGroup in
-                                        VStack(alignment: .leading, spacing: 6) {
+                                        HStack(spacing: 6) {
                                             Text(areaGroup.area.isEmpty ? "主區" : areaGroup.area)
-                                                .font(.bodyRounded(.semibold))
+                                                .font(.subheadlineRounded(.semibold))
                                                 .foregroundColor(.primary)
                                             
-                                            Text("\(areaGroup.toilets.count) 間廁所")
+                                            Text("\(areaGroup.toilets.count)間")
                                                 .font(.captionRounded())
                                                 .foregroundColor(.secondary)
                                         }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
-                                        .frame(minWidth: 100)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
                                         .background(Color.purple.opacity(0.1))
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
                                         .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
+                                            RoundedRectangle(cornerRadius: 8)
                                                 .stroke(Color.purple.opacity(0.3), lineWidth: 1)
                                         )
                                     }
                                 }
-                                .padding(.horizontal, 0)
+                                .padding(.horizontal, 20)
                             }
                         }
-                        .padding(.horizontal, 20)
                         .padding(.bottom, 20)
+                        // 移除外層的 .padding(.horizontal, 20)
                     }
                     
                     // 詳細資訊標題
@@ -618,6 +606,13 @@ struct LocationDetailView: View {
                         
                     }
                     .padding(.bottom, 30)
+                    
+                    // --- 社群評論區 (新增) ---
+                    CommunityReviewSection(
+                        reviews: reviewManager.getReviews(for: location.id),
+                        onAddReview: { showingReviewInput = true }
+                    )
+                    .padding(.bottom, 20) // 縮小外部底部間距 (原 40)
                 }
             }
             .scrollIndicators(.hidden)
@@ -661,18 +656,29 @@ struct LocationDetailView: View {
         } message: {
             Text(LocalizedStrings.mapSelectionDescription.localized)
         }
-        // 回報視窗 Sheet
-        .sheet(isPresented: $showingReportSheet) {
-            LocationReportView(locationName: location.name, onReport: { status in
-                // 本地模擬新增回報
-                let newReport = LocationReport(status: status, time: Date(), user: "我")
+        // 評論輸入 Sheet
+        .sheet(isPresented: $showingReviewInput) {
+            ReviewInputView(locationName: location.name, userNickname: $userNickname) { reportType, content, nickname in
+                // 儲存暱稱
+                userNickname = nickname
+                UserDefaults.standard.set(nickname, forKey: "UserNickname")
+                
+                // 新增評論
+                let newReview = LocationReport(
+                    locationId: location.id,
+                    type: reportType,
+                    rating: reportType.defaultRating,
+                    content: content.isEmpty ? nil : content,
+                    userNickname: nickname
+                )
+                
                 withAnimation {
-                    recentReports.insert(newReport, at: 0)
+                    reviewManager.addReview(newReview)
                 }
-                // TODO: 這裡之後接廣告邏輯
-            })
-            .presentationDetents([.height(380)])
+            }
+            .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
+            .presentationBackground(Color.white.opacity(0.5))
         }
     }
     
@@ -786,74 +792,215 @@ struct LocationDetailView: View {
     }
 }
 
-// 新增：地點回報專用的 View
-struct LocationReportView: View {
-    let locationName: String
-    let onReport: (LocationReport.ReportStatus) -> Void
-    @Environment(\.dismiss) private var dismiss
-    
-    let reportOptions: [(String, LocationReport.ReportStatus)] = [
-        ("乾淨舒適", .clean),
-        ("缺衛生紙", .noPaper),
-        ("髒亂", .dirty),
-        ("維修中", .maintenance),
-        ("排隊人多", .crowded)
-    ]
+// MARK: - 社群評論區組件
+
+struct CommunityReviewSection: View {
+    let reviews: [LocationReport]
+    let onAddReview: () -> Void
     
     var body: some View {
-        VStack(spacing: 24) {
-            // 頂部把手
-            Capsule()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 40, height: 4)
-                .padding(.top, 10)
+        VStack(alignment: .leading, spacing: 16) {
+            // 標題與新增按鈕
+            HStack {
+                Text("社群評論")
+                    .font(.title3Rounded(.bold))
+                
+                Spacer()
+                
+                Button(action: onAddReview) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.bubble")
+                        Text("撰寫評論")
+                    }
+                    .font(.subheadlineRounded(.semibold))
+                    .foregroundColor(.blue)
+                }
+            }
+            .padding(.horizontal, 20)
             
-            Text("即時狀況回報")
-                .font(.title3.bold())
-            
-            Text(locationName)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 16) {
-                ForEach(reportOptions, id: \.0) { option in
-                    Button(action: {
-                        submitReport(status: option.1)
-                    }) {
-                        VStack(spacing: 12) {
-                            Circle()
-                                .fill(option.1.color.opacity(0.1))
-                                .frame(width: 56, height: 56)
-                                .overlay(
-                                    Image(systemName: option.1.icon)
-                                        .font(.title2)
-                                        .foregroundColor(option.1.color)
-                                )
-                            
-                            Text(option.0)
-                                .font(.caption.bold())
-                                .foregroundColor(.primary)
+            if reviews.isEmpty {
+                // 無評論狀態
+                VStack(spacing: 12) {
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray.opacity(0.3))
+                    Text("還沒有人評論過，成為第一個吧！")
+                        .font(.subheadlineRounded())
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20) // 縮小內部垂直間距 (原 30)
+                .background(Color.gray.opacity(0.05))
+                .cornerRadius(16)
+                .padding(.horizontal, 20)
+            } else {
+                // 評論列表
+                VStack(spacing: 16) {
+                    ForEach(reviews) { review in
+                        ReviewRow(review: review)
+                        
+                        if review.id != reviews.last?.id {
+                            Divider()
+                                .padding(.leading, 20)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemGray6))
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+}
+
+struct ReviewRow: View {
+    let review: LocationReport
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // 頭像 (使用狀態圖示)
+            ZStack {
+                Circle()
+                    .fill(review.type.color.opacity(0.1))
+                    .frame(width: 40, height: 40)
+                Image(systemName: review.type.icon)
+                    .foregroundColor(review.type.color)
+                    .font(.system(size: 18))
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(review.userNickname)
+                        .font(.subheadline.bold())
+                    Spacer()
+                    Text(timeAgoDisplay(date: review.time))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack(spacing: 4) {
+                    ForEach(0..<5) { index in
+                        Image(systemName: index < review.rating ? "star.fill" : "star")
+                            .font(.caption2)
+                            .foregroundColor(index < review.rating ? .yellow : .gray.opacity(0.3))
+                    }
+                    
+                    Text("• \(review.type.rawValue)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if let content = review.content {
+                    Text(content)
+                        .font(.subheadline)
+                        .foregroundColor(.primary)
+                        .padding(.top, 2)
+                }
+            }
+        }
+    }
+    
+    private func timeAgoDisplay(date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+// MARK: - 評論輸入視窗
+
+struct ReviewInputView: View {
+    let locationName: String
+    @Binding var userNickname: String
+    let onSubmit: (LocationReport.ReportType, String, String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var selectedType: LocationReport.ReportType = .clean
+    @State private var comment: String = ""
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // 狀態選擇 (直接決定星級)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("整體狀況")
+                            .font(.headline)
+                        
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            ForEach(LocationReport.ReportType.allCases, id: \.self) { type in
+                                Button(action: { selectedType = type }) {
+                                    HStack {
+                                        Image(systemName: type.icon)
+                                        Text(type.rawValue)
+                                    }
+                                    .font(.subheadline.bold())
+                                    .foregroundColor(selectedType == type ? .white : .primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(selectedType == type ? type.color : Color(.systemGray6))
+                                    .cornerRadius(12)
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 評論輸入
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("留言 (選填)")
+                            .font(.headline)
+                        
+                        TextField("分享更多細節...", text: $comment, axis: .vertical)
+                            .lineLimit(3...6)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                    }
+                    
+                    // 暱稱設定
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("您的暱稱")
+                            .font(.headline)
+                        
+                        TextField("暱稱", text: $userNickname)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(20)
+            }
+            .navigationTitle("撰寫評論")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if #available(iOS 26.0, *) {
+                        Button("送出") {
+                            if userNickname.isEmpty { userNickname = "熱心路人" }
+                            onSubmit(selectedType, comment, userNickname)
+                            dismiss()
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(.blue)
+                    } else {
+                        Button("送出") {
+                            if userNickname.isEmpty { userNickname = "熱心路人" }
+                            onSubmit(selectedType, comment, userNickname)
+                            dismiss()
+                        }
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
                     }
                 }
             }
-            .padding(.horizontal, 24)
-            
-            Spacer()
         }
-        .background(Color.white)
-    }
-    
-    private func submitReport(status: LocationReport.ReportStatus) {
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-        onReport(status)
-        dismiss()
     }
 }
 

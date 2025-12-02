@@ -954,6 +954,7 @@ struct NearbyListView: View {
             NearbyFilterSheet(filterOptions: $filterOptions)
                 .presentationDetents([.height(460)])
                 .presentationDragIndicator(.hidden)
+                .presentationBackground(Color.white.opacity(0.5))
         }
         .sheet(item: $selectedToiletForDetail) { toilet in
             ToiletDetailView(toilet: toilet, toiletDetailDetent: $toiletDetailDetent)
@@ -1294,11 +1295,25 @@ private struct NearbyFilterSheet: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("套用") {
-                        filterOptions = draft
-                        dismiss()
+                    if #available(iOS 26.0, *) {
+                        Button("套用") {
+                            filterOptions = draft
+                            dismiss()
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(.blue)
+                    } else {
+                        Button("套用") {
+                            filterOptions = draft
+                            dismiss()
+                        }
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .clipShape(Capsule())
                     }
-                    .font(.headline)
                 }
             }
         }

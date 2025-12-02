@@ -1061,13 +1061,27 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(LocalizedStrings.done.localized) { dismiss() }
+                    if #available(iOS 26.0, *) {
+                        Button(LocalizedStrings.done.localized) { dismiss() }
+                            .buttonStyle(.glassProminent)
+                            .tint(.blue)
+                    } else {
+                        Button(action: { dismiss() }) {
+                            Text(LocalizedStrings.done.localized)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .clipShape(Capsule())
+                        }
+                    }
                 }
             }
         }
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
-        .presentationBackground(.regularMaterial)  // 暫時移除 LG 效果，改為普通毛玻璃
+        .presentationBackground(Color.white.opacity(0.5))
         // .presentationBackground(.thinMaterial)  // 未來想要 LG 效果時取消註解這行，並註解上一行
     }
 
