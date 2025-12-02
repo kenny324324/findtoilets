@@ -8,6 +8,39 @@
 import Foundation
 import CloudKit
 import Combine
+import SwiftUI
+
+// 使用者性別枚舉
+enum UserGender: Int, Codable, CaseIterable, Identifiable {
+    case secret = 0
+    case male = 1
+    case female = 2
+    
+    var id: Int { rawValue }
+    
+    var title: String {
+        switch self {
+        case .secret: return "不透露"
+        case .male: return "男生"
+        case .female: return "女生"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .secret: return .gray
+        case .male: return .blue
+        case .female: return .red
+        }
+    }
+}
+
+// 使用者檔案模型
+struct UserProfile: Identifiable {
+    let id: CKRecord.ID
+    let nickname: String
+    let gender: UserGender
+}
 
 class CloudKitManager: ObservableObject {
     static let shared = CloudKitManager()
@@ -22,6 +55,7 @@ class CloudKitManager: ObservableObject {
     // 當前使用者的獨特 ID (跨裝置不變)
     @Published var currentUserID: CKRecord.ID?
     @Published var permissionStatus: Bool = false
+    @Published var currentUserProfile: UserProfile? // 當前使用者的檔案
     
     private init() {
         // 初始化時檢查 iCloud 狀態並取得 ID
@@ -53,12 +87,135 @@ class CloudKitManager: ObservableObject {
                     print("\n🚀 [CloudKit] 身分驗證成功！")
                     print("   -> 您的 User ID: \(recordID.recordName)")
                     print("   -> 這組 ID 跨裝置、重裝都不會變，就是您的匿名身分證。\n")
+                    
+                    // 取得 ID 後，順便抓取使用者檔案
+                    self?.fetchMyUserProfile(recordID: recordID)
                 }
             } else if let error = error {
                 print("\n⚠️ [CloudKit] 身分驗證失敗: \(error.localizedDescription)")
             }
         }
     }
+    
+    // MARK: - User Profile Management
+    
+    // 取得自己的使用者檔案
+    func fetchMyUserProfile(recordID: CKRecord.ID) {
+        publicDB.fetch(withRecordID: recordID) { [weak self] record, error in
+            DispatchQueue.main.async {
+                if let record = record {
+                    // 解析 UserProfile
+                    // 注意：User Records 是特殊的，我們直接在 User Record 上擴充欄位
+                    // 或者我們使用獨立的 Users table，這裡假設我們擴充 User Record 或者使用 1:1 的 Profile
+                    // 但通常 Public DB 的 User Record 是不可寫入的 (除了自訂欄位)，
+                    // 比較好的做法是建立一個 "UserProfile" recordType，ID 為 userRecordID (或者有 reference)
+                    // 為了簡化查詢，我們嘗試直接查詢 ID 為 userRecordID 的 UserProfile record
+                    
+                    self?.fetchUserProfileRecord(userRecordID: recordID)
+                }
+            }
+        }
+    }
+    
+    // 實際上抓取 UserProfile record
+    private func fetchUserProfileRecord(userRecordID: CKRecord.ID) {
+        // 假設 UserProfile 的 recordID.recordName 就是 userRecordID.recordName
+        // 這樣可以確保一對一
+        let profileRecordID = CKRecord.ID(recordName: userRecordID.recordName, zoneID: CKRecordZone.default().zoneID)
+        
+        publicDB.fetch(withRecordID: profileRecordID) { [weak self] record, error in
+            DispatchQueue.main.async {
+                if let record = record,
+                   let nickname = record["nickname"] as? String,
+                   let genderRaw = record["gender"] as? Int,
+                   let gender = UserGender(rawValue: genderRaw) {
+                    
+                    let profile = UserProfile(id: record.recordID, nickname: nickname, gender: gender)
+                    self?.currentUserProfile = profile
+                    print("✅ [CloudKit] 成功載入使用者檔案: \(nickname), \(gender)")
+                } else {
+                    print("ℹ️ [CloudKit] 尚未建立使用者檔案 (或載入失敗)")
+                }
+            }
+        }
+    }
+    
+    // 儲存或更新使用者檔案
+    func saveUserProfile(nickname: String, gender: UserGender, completion: @escaping (Result<Bool, Error>) -> Void) {
+        guard let currentUserID = currentUserID else {
+            completion(.failure(NSError(domain: "CloudKit", code: 401, userInfo: [NSLocalizedDescriptionKey: "未登入 iCloud"])))
+            return
+        }
+        
+        let profileRecordID = CKRecord.ID(recordName: currentUserID.recordName, zoneID: CKRecordZone.default().zoneID)
+        
+        // 先嘗試 fetch 看是否存在
+        publicDB.fetch(withRecordID: profileRecordID) { [weak self] existingRecord, error in
+            let record: CKRecord
+            if let existingRecord = existingRecord {
+                record = existingRecord
+            } else {
+                record = CKRecord(recordType: "UserProfile", recordID: profileRecordID)
+            }
+            
+            record["nickname"] = nickname
+            record["gender"] = gender.rawValue
+            
+            self?.publicDB.save(record) { savedRecord, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("❌ [CloudKit] 儲存使用者檔案失敗: \(error.localizedDescription)")
+                        completion(.failure(error))
+                    } else {
+                        print("✅ [CloudKit] 儲存使用者檔案成功")
+                        self?.currentUserProfile = UserProfile(id: profileRecordID, nickname: nickname, gender: gender)
+                        completion(.success(true))
+                    }
+                }
+            }
+        }
+    }
+    
+    // 批量抓取使用者檔案 (用於評論列表)
+    func fetchUserProfiles(userIDs: [String], completion: @escaping ([String: UserProfile]) -> Void) {
+        guard !userIDs.isEmpty else {
+            completion([:])
+            return
+        }
+        
+        // 去除重複 ID
+        let uniqueIDs = Array(Set(userIDs))
+        let recordIDs = uniqueIDs.map { CKRecord.ID(recordName: $0, zoneID: CKRecordZone.default().zoneID) }
+        
+        let operation = CKFetchRecordsOperation(recordIDs: recordIDs)
+        operation.desiredKeys = ["nickname", "gender"]
+        operation.qualityOfService = .userInitiated
+        
+        var profiles: [String: UserProfile] = [:]
+        
+        operation.perRecordResultBlock = { recordID, result in
+            switch result {
+            case .success(let record):
+                if let nickname = record["nickname"] as? String,
+                   let genderRaw = record["gender"] as? Int,
+                   let gender = UserGender(rawValue: genderRaw) {
+                    profiles[recordID.recordName] = UserProfile(id: recordID, nickname: nickname, gender: gender)
+                }
+            case .failure(let error):
+                print("⚠️ [CloudKit] 無法抓取使用者 \(recordID.recordName): \(error.localizedDescription)")
+            }
+        }
+        
+        operation.fetchRecordsResultBlock = { result in
+            DispatchQueue.main.async {
+                completion(profiles)
+            }
+        }
+        
+        publicDB.add(operation)
+    }
+    
+    // MARK: - Review Management
     
     // 2. 上傳評論
     func saveReview(report: LocationReport, completion: @escaping (Result<Bool, Error>) -> Void) {
@@ -70,6 +227,10 @@ class CloudKitManager: ObservableObject {
         record["type"] = report.type.rawValue
         record["rating"] = report.rating
         record["content"] = report.content ?? ""
+        
+        // 注意：不再強制依賴 record["userNickname"]，但為了相容性可以存個 snapshot，
+        // 或者存空字串，完全依賴 UserProfile
+        // 這裡我們存入當下的暱稱作為備份，但顯示時優先使用 Profile
         record["userNickname"] = report.userNickname
         
         // 新增：儲存標籤與評分詳情
@@ -79,8 +240,6 @@ class CloudKitManager: ObservableObject {
            let jsonString = String(data: jsonData, encoding: .utf8) {
             record["ratingDetails"] = jsonString
         }
-        
-        // note: time 會使用系統的 creationDate，userId 會使用系統的 creatorUserRecordID
         
         print("📤 [CloudKit] 準備上傳評論...")
         print("   - Location ID: \(report.locationId.uuidString)")
@@ -94,9 +253,6 @@ class CloudKitManager: ObservableObject {
                     completion(.failure(error))
                 } else {
                     print("\n✅ [CloudKit] 上傳評論成功！")
-                    print("   -> 資料已存入雲端 Public Database。")
-                    print("   -> 請至 CloudKit Dashboard 查看: https://icloud.developer.apple.com/dashboard/")
-                    print("   -> 進入後選擇 'Public Database' -> 左側選 'Review' -> 按 'Query Records' 查詢\n")
                     completion(.success(true))
                 }
             }
@@ -110,7 +266,6 @@ class CloudKitManager: ObservableObject {
         let query = CKQuery(recordType: "Review", predicate: predicate)
         
         // 按照時間倒序排列 (新的在上面)
-        // 注意：這需要在 CloudKit Dashboard 將 createdTimestamp 設為 Sortable
         query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         
         print("📥 [CloudKit] 開始下載評論 (LocationID: \(locationId.uuidString))...")
@@ -132,26 +287,22 @@ class CloudKitManager: ObservableObject {
             
             // 將 CKRecord 轉回 LocationReport
             let reports = records.compactMap { record -> LocationReport? in
-                // 詳細除錯：印出每一筆資料的欄位，確認是否有缺
-                /*
-                print("   - Record ID: \(record.recordID.recordName)")
-                print("     Keys: \(record.allKeys())")
-                */
-                
                 guard let locationIdString = record["locationId"] as? String,
                       let locationUUID = UUID(uuidString: locationIdString),
                       let typeString = record["type"] as? String,
                       let type = LocationReport.ReportType(rawValue: typeString),
                       let rating = record["rating"] as? Int,
-                      let nickname = record["userNickname"] as? String,
-                      let creationDate = record.creationDate else { // 注意：creationDate 是系統屬性，不是自訂欄位
+                      let creationDate = record.creationDate else {
                     
-                    print("⚠️ [CloudKit] 解析失敗，跳過此筆資料 (ID: \(record.recordID.recordName))")
-                    print("     缺少必要欄位。現有欄位: \(record.allKeys())")
                     return nil
                 }
                 
+                // 相容舊資料：如果沒有 creatorUserRecordID (極少見)，用 Unknown
                 let creatorID = record.creatorUserRecordID?.recordName ?? "Unknown"
+                
+                // 這裡的 userNickname 只是備份，之後會被 Profile 覆蓋
+                let nickname = record["userNickname"] as? String ?? "匿名"
+                
                 let content = record["content"] as? String
                 let tags = record["tags"] as? [String] ?? []
                 

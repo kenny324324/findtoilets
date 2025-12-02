@@ -21,7 +21,8 @@ struct LocationReport: Identifiable, Codable {
     let ratingDetails: [String: Int] // 新增：詳細評分 (1=好, 0=壞)
     let time: Date
     let userId: String // 匿名 ID
-    let userNickname: String // 匿名暱稱
+    var userNickname: String // 匿名暱稱 (現在可以變動)
+    var userGender: UserGender? // 使用者性別 (從 Profile 撈取)
     
     init(locationId: UUID, type: ReportType, rating: Int, content: String? = nil, userNickname: String, tags: [String] = [], ratingDetails: [String: Int] = [:]) {
         self.id = UUID()
@@ -34,10 +35,11 @@ struct LocationReport: Identifiable, Codable {
         self.time = Date()
         self.userId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
         self.userNickname = userNickname
+        self.userGender = nil
     }
     
-    // 用於假資料
-    init(id: UUID = UUID(), locationId: UUID = UUID(), type: ReportType, rating: Int, content: String? = nil, time: Date, userNickname: String, userId: String = "dummy_user", tags: [String] = [], ratingDetails: [String: Int] = [:]) {
+    // 完整初始化
+    init(id: UUID = UUID(), locationId: UUID = UUID(), type: ReportType, rating: Int, content: String? = nil, time: Date, userNickname: String, userId: String = "dummy_user", tags: [String] = [], ratingDetails: [String: Int] = [:], userGender: UserGender? = nil) {
         self.id = id
         self.locationId = locationId
         self.type = type
@@ -48,6 +50,7 @@ struct LocationReport: Identifiable, Codable {
         self.time = time
         self.userId = userId
         self.userNickname = userNickname
+        self.userGender = userGender
     }
     
     enum ReportType: String, Codable, CaseIterable {
@@ -101,9 +104,26 @@ class ReviewManager: ObservableObject {
     func loadReviews(for locationId: UUID) {
         isLoading = true
         CloudKitManager.shared.fetchReviews(for: locationId) { [weak self] downloadedReviews in
-            DispatchQueue.main.async {
-                self?.reviews[locationId] = downloadedReviews
-                self?.isLoading = false
+            guard let self = self else { return }
+            
+            // 取得評論後，收集所有 User IDs 並抓取 Profiles
+            let userIDs = downloadedReviews.map { $0.userId }
+            
+            CloudKitManager.shared.fetchUserProfiles(userIDs: userIDs) { profiles in
+                DispatchQueue.main.async {
+                    // 將 Profile 資訊合併到 Reviews
+                    let enrichedReviews = downloadedReviews.map { report -> LocationReport in
+                        var newReport = report
+                        if let profile = profiles[report.userId] {
+                            newReport.userNickname = profile.nickname
+                            newReport.userGender = profile.gender
+                        }
+                        return newReport
+                    }
+                    
+                    self.reviews[locationId] = enrichedReviews
+                    self.isLoading = false
+                }
             }
         }
     }
@@ -705,13 +725,16 @@ struct LocationDetailView: View {
         }
         // 評論輸入 Sheet
         .sheet(isPresented: $showingReviewInput) {
-            ReviewInputView(locationName: location.name, userNickname: $userNickname) { reportType, rating, content, nickname, tags, ratingDetails in
+            ReviewInputView(locationName: location.name, userNickname: $userNickname) { reportType, rating, content, nickname, tags, ratingDetails, gender in
                 // 儲存暱稱
                 userNickname = nickname
                 UserDefaults.standard.set(nickname, forKey: "UserNickname")
                 
+                // 這裡會由 CloudKitManager 內部存 UserProfile (在 ReviewInputView 裡做)，所以這裡不需要特別存
+                // 但為了讓 UI 立即更新，我們手動更新 UserProfile
+                
                 // 新增評論
-                let newReview = LocationReport(
+                var newReview = LocationReport(
                     locationId: location.id,
                     type: reportType,
                     rating: rating, // 使用使用者點的星星數
@@ -720,6 +743,8 @@ struct LocationDetailView: View {
                     tags: tags,
                     ratingDetails: ratingDetails
                 )
+                // 本地顯示時帶上性別
+                newReview.userGender = gender
                 
                 withAnimation {
                     reviewManager.addReview(newReview)
@@ -921,22 +946,48 @@ struct CommunityReviewSection: View {
 struct ReviewRow: View {
     let review: LocationReport
     
+    // 計算顯示的顏色
+    private var genderColor: Color {
+        if let gender = review.userGender {
+            return gender.color
+        }
+        // 如果沒有性別資訊，預設灰色
+        return .gray
+    }
+    
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // 頭像 (使用狀態圖示)
+            // 頭像
             ZStack {
                 Circle()
-                    .fill(review.type.color.opacity(0.1))
+                    .fill(genderColor.opacity(0.1)) // 使用性別顏色
                     .frame(width: 40, height: 40)
-                Image(systemName: review.type.icon)
-                    .foregroundColor(review.type.color)
-                    .font(.system(size: 18))
+                
+                // 顯示頭像圖標 (如果是狀態圖標，可以保留，或者改用人頭)
+                // 根據需求：男生用藍色，女生用紅色，不透露用灰色
+                Image(systemName: "person.fill")
+                    .foregroundColor(genderColor)
+                    .font(.system(size: 20))
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(review.userNickname)
                         .font(.subheadline.bold())
+                    
+                    // 旁邊顯示評論類型的 Badge (原本的頭像)
+                    HStack(spacing: 4) {
+                        Image(systemName: review.type.icon)
+                            .font(.caption2)
+                        Text(review.type.rawValue)
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(review.type.color.opacity(0.1))
+                    .foregroundColor(review.type.color)
+                    .cornerRadius(4)
+                    
                     Spacer()
                     Text(timeAgoDisplay(date: review.time))
                         .font(.caption)
@@ -949,7 +1000,6 @@ struct ReviewRow: View {
                             .font(.caption2)
                             .foregroundColor(index < review.rating ? .yellow : Color.gray.opacity(0.2))
                     }
-                    // 移除星星旁邊的類型文字
                 }
                 
                 // 顯示標籤 (問題列表)
@@ -1076,8 +1126,8 @@ struct AllReviewsSheet: View {
 struct ReviewInputView: View {
     let locationName: String
     @Binding var userNickname: String
-    // 更新：加上 rating 參數 (星星數)
-    let onSubmit: (LocationReport.ReportType, Int, String, String, [String], [String: Int]) -> Void
+    // 更新：加上 rating 參數 (星星數) 和 性別
+    let onSubmit: (LocationReport.ReportType, Int, String, String, [String], [String: Int], UserGender) -> Void
     @Environment(\.dismiss) private var dismiss
     
     // 評分維度狀態
@@ -1091,6 +1141,11 @@ struct ReviewInputView: View {
     
     @State private var comment: String = ""
     
+    // 性別與 Profile 相關
+    @State private var gender: UserGender = .secret
+    @State private var isLoadingProfile = true
+    @State private var showingNameInputAlert = false // 控制暱稱輸入彈窗
+    
     let issueTags = ["缺衛生紙", "髒亂異味", "設備損壞", "維修中", "地面濕滑", "馬桶堵塞", "照明不足"]
     
     var body: some View {
@@ -1098,7 +1153,22 @@ struct ReviewInputView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     
-                    // 1. 整體評價 (星星評分)
+                    // 1. 性別選擇 (用於頭像顏色)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("性別")
+                            .font(.headline)
+                        
+                        Picker("性別", selection: $gender) {
+                            ForEach(UserGender.allCases) { gender in
+                                Text(gender.title).tag(gender)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .tint(gender.color)
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    // 2. 整體評價 (星星評分)
                     VStack(spacing: 12) {
                         HStack {
                             Text("整體評價")
@@ -1125,7 +1195,7 @@ struct ReviewInputView: View {
                         .background(Color.gray.opacity(0.05))
                         .cornerRadius(16)
                         
-                        // 2. 其他維度評分
+                        // 3. 其他維度評分
                         VStack(spacing: 12) {
                             RatingRow(title: "乾淨度", selection: $ratingCleanliness)
                             Divider()
@@ -1139,7 +1209,7 @@ struct ReviewInputView: View {
                     }
                     .padding(.horizontal, 20)
                     
-                    // 2. 負面狀況回報 (多選, 橫向捲動)
+                    // 4. 負面狀況回報 (多選, 橫向捲動)
                     VStack(alignment: .leading, spacing: 12) {
                         Text("回報問題")
                             .font(.headline)
@@ -1175,7 +1245,7 @@ struct ReviewInputView: View {
                         // 移除遮罩與 ZStack
                     }
                     
-                    // 3. 留言輸入
+                    // 5. 留言輸入
                     VStack(alignment: .leading, spacing: 12) {
                         Text("留言")
                             .font(.headline)
@@ -1188,22 +1258,9 @@ struct ReviewInputView: View {
                     }
                     .padding(.horizontal, 20) // 補回 padding
                     
-                    // 4. 暱稱設定
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("您的暱稱")
-                            .font(.headline)
-                        
-                        TextField("暱稱", text: $userNickname)
-                            .padding()
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(12)
-                    }
-                    .padding(.horizontal, 20) // 補回 padding
-                    
                     Spacer()
                 }
                 .padding(.vertical, 20) // 移除水平 padding，只保留垂直
-                // 原本 .padding(20) 改為 .padding(.vertical, 20)
                 .frame(maxWidth: .infinity) // 確保點擊區域涵蓋全寬
                 .contentShape(Rectangle()) // 讓空白區域也可點擊
                 .onTapGesture {
@@ -1220,14 +1277,20 @@ struct ReviewInputView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     let submitButton = Button("送出") {
-                        handleSubmit()
+                        if userNickname.isEmpty {
+                            // 如果沒暱稱，跳出輸入框
+                            showingNameInputAlert = true
+                        } else {
+                            // 有暱稱直接送出
+                            handleSubmit()
+                        }
                     }
                     
                     if #available(iOS 26.0, *) {
                         submitButton
                             .buttonStyle(.glassProminent)
                             .tint(.blue)
-                            .disabled(starRating == 0) // 改為檢查星星是否已評
+                            .disabled(starRating == 0) // 移除 userNickname.isEmpty 檢查，改為點擊後檢查
                     } else {
                         submitButton
                             .fontWeight(.bold)
@@ -1236,16 +1299,47 @@ struct ReviewInputView: View {
                             .background(starRating == 0 ? Color.gray : Color.blue)
                             .foregroundColor(.white)
                             .clipShape(Capsule())
-                            .disabled(starRating == 0) // 改為檢查星星是否已評
+                            .disabled(starRating == 0)
                     }
                 }
             }
+            .alert("請設定暱稱", isPresented: $showingNameInputAlert) {
+                TextField("輸入您的暱稱", text: $userNickname)
+                Button("確定", action: handleSubmit)
+                Button("取消", role: .cancel) { }
+            } message: {
+                Text("第一次留言請設定暱稱，之後可至「設定」頁面修改。")
+            }
+        }
+        .onAppear {
+            // 嘗試載入現有的個人檔案
+            loadUserProfile()
+        }
+    }
+    
+    private func loadUserProfile() {
+        if let profile = CloudKitManager.shared.currentUserProfile {
+            // 如果已經有載入過的 Profile，直接使用
+            self.userNickname = profile.nickname
+            self.gender = profile.gender
+            self.isLoadingProfile = false
+        } else {
+            // 否則，使用 UserDefaults 裡的暱稱 (相容舊版)
+            // 性別預設為不透露
         }
     }
     
     // 處理送出邏輯
     private func handleSubmit() {
-        if userNickname.isEmpty { userNickname = "熱心路人" }
+        let finalNickname = userNickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        if finalNickname.isEmpty { return } // 理論上被 disabled 擋住了
+        
+        // 1. 先儲存/更新 UserProfile
+        CloudKitManager.shared.saveUserProfile(nickname: finalNickname, gender: gender) { result in
+            // 不管成功失敗都繼續送出評論 (可能是離線)
+        }
+        
+        // 2. 準備評論資料
         
         // 決定主要類型 (ReportType)
         // 根據星星數和選中的問題標籤來決定
@@ -1273,7 +1367,7 @@ struct ReviewInputView: View {
         if let r = ratingCrowd { details["crowd"] = r ? 1 : 0 } // 1=少(好), 0=多(壞)
         
         // 更新：加上星星數參數
-        onSubmit(finalType, starRating, comment.trimmingCharacters(in: .whitespacesAndNewlines), userNickname, Array(selectedIssues), details)
+        onSubmit(finalType, starRating, comment.trimmingCharacters(in: .whitespacesAndNewlines), finalNickname, Array(selectedIssues), details, gender)
         dismiss()
     }
 }
