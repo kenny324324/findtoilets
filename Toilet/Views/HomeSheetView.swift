@@ -238,16 +238,16 @@ struct HomeSheetView: View {
                                         HStack(spacing: 14) {
                                             // 佔位符圖示
                                             RoundedRectangle(cornerRadius: 7)
-                                                .fill(Color.gray.opacity(0.2))
+                                                .fill(Color.gray.opacity(0.1))
                                                 .frame(width: 34, height: 34)
                                             
                                             // 佔位符文字
                                             VStack(alignment: .leading, spacing: 6) {
                                                 RoundedRectangle(cornerRadius: 4)
-                                                    .fill(Color.gray.opacity(0.2))
+                                                    .fill(Color.gray.opacity(0.1))
                                                     .frame(width: 120, height: 14)
                                                 RoundedRectangle(cornerRadius: 4)
-                                                    .fill(Color.gray.opacity(0.15))
+                                                    .fill(Color.gray.opacity(0.05))
                                                     .frame(width: 60, height: 10)
                                             }
                                             
@@ -255,7 +255,7 @@ struct HomeSheetView: View {
                                             
                                             // 佔位符距離
                                             RoundedRectangle(cornerRadius: 7)
-                                                .fill(Color.gray.opacity(0.15))
+                                                .fill(Color.gray.opacity(0.05))
                                                 .frame(width: 50, height: 24)
                                         }
                                         .padding(.horizontal, 24)
@@ -267,7 +267,7 @@ struct HomeSheetView: View {
                                         }
                                     }
                                 }
-                                .background(Color.black.opacity(0.03))
+                                .background(Color.black.opacity(0.03)) // 與一般列表背景一致
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
                                 .padding(.horizontal, 20)
                                 
@@ -1296,10 +1296,10 @@ private struct NearbyFilterSheet: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if #available(iOS 26.0, *) {
-                        Button("套用") {
-                            filterOptions = draft
-                            dismiss()
-                        }
+                    Button("套用") {
+                        filterOptions = draft
+                        dismiss()
+                    }
                         .buttonStyle(.glassProminent)
                         .tint(.blue)
                     } else {

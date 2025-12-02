@@ -913,63 +913,112 @@ struct ReviewInputView: View {
     let onSubmit: (LocationReport.ReportType, String, String) -> Void
     @Environment(\.dismiss) private var dismiss
     
-    @State private var selectedType: LocationReport.ReportType = .clean
+    // 評分維度狀態 (true = 👍, false = 👎, nil = 未評)
+    @State private var ratingOverall: Bool? = nil
+    @State private var ratingCleanliness: Bool? = nil
+    @State private var ratingConvenience: Bool? = nil
+    @State private var ratingCrowd: Bool? = nil // true = 人少(好), false = 人多(壞)
+    
+    // 負面狀況多選
+    @State private var selectedIssues: Set<String> = []
+    
     @State private var comment: String = ""
+    
+    let issueTags = ["缺衛生紙", "髒亂異味", "設備損壞", "維修中", "地面濕滑", "馬桶堵塞", "照明不足"]
     
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
-                    // 狀態選擇 (直接決定星級)
+                    
+                    // 1. 多維度評分區塊
+                    VStack(spacing: 12) { // 縮小垂直間距 (原 20)
+                        RatingRow(title: "整體評價", selection: $ratingOverall)
+                        Divider()
+                        RatingRow(title: "乾淨度", selection: $ratingCleanliness)
+                        Divider()
+                        RatingRow(title: "方便度", selection: $ratingConvenience)
+                        Divider()
+                        RatingRow(title: "人潮狀況", selection: $ratingCrowd, positiveText: "少", negativeText: "多")
+                    }
+                    .padding(16)
+                    .background(Color.gray.opacity(0.05))
+                    .cornerRadius(16)
+                    .padding(.horizontal, 20) // 補回 padding
+                    
+                    // 2. 負面狀況回報 (多選, 橫向捲動)
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("整體狀況")
+                        Text("回報問題")
                             .font(.headline)
+                            .padding(.horizontal, 20) // 標題保留 padding
                         
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                            ForEach(LocationReport.ReportType.allCases, id: \.self) { type in
-                                Button(action: { selectedType = type }) {
-                                    HStack {
-                                        Image(systemName: type.icon)
-                                        Text(type.rawValue)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(issueTags, id: \.self) { tag in
+                                    let isSelected = selectedIssues.contains(tag)
+                                    Button(action: {
+                                        var transaction = Transaction(animation: .none)
+                                        transaction.disablesAnimations = true
+                                        withTransaction(transaction) {
+                                            if isSelected {
+                                                selectedIssues.remove(tag)
+                                            } else {
+                                                selectedIssues.insert(tag)
+                                            }
+                                        }
+                                    }) {
+                                        Text(tag)
+                                            .font(.subheadline.bold())
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .foregroundColor(isSelected ? .red : .primary)
+                                            .background(isSelected ? Color.red.opacity(0.2) : Color.gray.opacity(0.1))
+                                            .clipShape(Capsule())
                                     }
-                                    .font(.subheadline.bold())
-                                    .foregroundColor(selectedType == type ? .white : .primary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(selectedType == type ? type.color : Color(.systemGray6))
-                                    .cornerRadius(12)
                                 }
                             }
+                            .padding(.horizontal, 20) // 內容內縮 padding
                         }
+                        // 移除遮罩與 ZStack
                     }
                     
-                    // 評論輸入
+                    // 3. 留言輸入
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("留言 (選填)")
+                        Text("留言")
                             .font(.headline)
                         
-                        TextField("分享更多細節...", text: $comment, axis: .vertical)
+                        TextField("分享你的使用經驗", text: $comment, axis: .vertical)
                             .lineLimit(3...6)
                             .padding()
-                            .background(Color(.systemGray6))
+                            .background(Color.gray.opacity(0.1))
                             .cornerRadius(12)
                     }
+                    .padding(.horizontal, 20) // 補回 padding
                     
-                    // 暱稱設定
+                    // 4. 暱稱設定
                     VStack(alignment: .leading, spacing: 12) {
                         Text("您的暱稱")
                             .font(.headline)
                         
                         TextField("暱稱", text: $userNickname)
                             .padding()
-                            .background(Color(.systemGray6))
+                            .background(Color.gray.opacity(0.1))
                             .cornerRadius(12)
                     }
+                    .padding(.horizontal, 20) // 補回 padding
                     
                     Spacer()
                 }
-                .padding(20)
+                .padding(.vertical, 20) // 移除水平 padding，只保留垂直
+                // 原本 .padding(20) 改為 .padding(.vertical, 20)
+                .frame(maxWidth: .infinity) // 確保點擊區域涵蓋全寬
+                .contentShape(Rectangle()) // 讓空白區域也可點擊
+                .onTapGesture {
+                    // 點擊空白處關閉鍵盤，不影響 Scroll位置
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
             }
+            .scrollDismissesKeyboard(.interactively) // 滑動時關閉鍵盤
             .navigationTitle("撰寫評論")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -977,26 +1026,172 @@ struct ReviewInputView: View {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
+                    let submitButton = Button("送出") {
+                        handleSubmit()
+                    }
+                    
                     if #available(iOS 26.0, *) {
-                        Button("送出") {
-                            if userNickname.isEmpty { userNickname = "熱心路人" }
-                            onSubmit(selectedType, comment, userNickname)
-                            dismiss()
-                        }
-                        .buttonStyle(.glassProminent)
-                        .tint(.blue)
+                        submitButton
+                            .buttonStyle(.glassProminent)
+                            .tint(.blue)
+                            .disabled(ratingOverall == nil)
                     } else {
-                        Button("送出") {
-                            if userNickname.isEmpty { userNickname = "熱心路人" }
-                            onSubmit(selectedType, comment, userNickname)
-                            dismiss()
+                        submitButton
+                            .fontWeight(.bold)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(ratingOverall == nil ? Color.gray : Color.blue)
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
+                            .disabled(ratingOverall == nil)
+                    }
+                }
+            }
+        }
+    }
+    
+    // 處理送出邏輯
+    private func handleSubmit() {
+        if userNickname.isEmpty { userNickname = "熱心路人" }
+        
+        // 決定主要類型 (ReportType)
+        // 邏輯：如果有選負面標籤，優先顯示負面類型；否則根據整體評價決定
+        let finalType: LocationReport.ReportType
+        if !selectedIssues.isEmpty {
+            if selectedIssues.contains("缺衛生紙") { finalType = .noPaper }
+            else if selectedIssues.contains("維修中") || selectedIssues.contains("設備損壞") { finalType = .maintenance }
+            else if selectedIssues.contains("人潮擁擠") { finalType = .crowded }
+            else { finalType = .dirty } // 其他問題歸類為髒亂/問題
+        } else {
+            // 沒選問題，看整體評價
+            if ratingOverall == true {
+                finalType = .clean // 好評預設
+            } else {
+                finalType = .normal // 差評但沒說原因，暫歸普通或待改善
+            }
+        }
+        
+        // 組合詳細評分內容到 comment 中 (因為目前 Model 沒欄位存)
+        var details = ""
+        if let r = ratingCleanliness { details += "乾淨度:\(r ? "👍" : "👎") " }
+        if let r = ratingConvenience { details += "方便度:\(r ? "👍" : "👎") " }
+        if let r = ratingCrowd { details += "人潮:\(r ? "少" : "多") " }
+        if !selectedIssues.isEmpty { details += "\n問題: " + selectedIssues.joined(separator: ", ") }
+        
+        let finalComment = (comment.isEmpty ? "" : comment + "\n") + details
+        
+        onSubmit(finalType, finalComment.trimmingCharacters(in: .whitespacesAndNewlines), userNickname)
+        dismiss()
+    }
+}
+
+// 評分列組件
+struct RatingRow: View {
+    let title: String
+    @Binding var selection: Bool?
+    var positiveText: String? = nil // 如果有值，顯示文字而非圖示
+    var negativeText: String? = nil
+    
+    // 動畫狀態
+    @State private var isThumbsUpAnimating = false
+    @State private var isThumbsDownAnimating = false
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.subheadline.bold())
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            HStack(spacing: 12) {
+                // 正評按鈕 (左邊) - 文字模式或圖示模式
+                if let posText = positiveText {
+                    // 文字模式 (人少，對應 true/讚)
+                    Button(action: {
+                        selection = true
+                    }) {
+                        Text(posText)
+                            .font(.subheadline.bold())
+                            .foregroundColor(selection == true ? .white : .gray)
+                            .frame(width: 36, height: 36) // 改為正方形，與圖示按鈕一致
+                            .background(selection == true ? Color.blue : Color.gray.opacity(0.15))
+                            .clipShape(Circle()) // 改為圓形
+                            .animation(.none, value: selection) // 禁用所有動畫
+                    }
+                } else {
+                    // 圖示模式 (👍) - 分離背景和 Icon
+                    Button(action: {
+                        selection = true
+                        
+                        withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.5, blendDuration: 0)) {
+                            isThumbsUpAnimating = true
                         }
-                        .fontWeight(.bold)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .clipShape(Capsule())
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.5, blendDuration: 0)) {
+                                isThumbsUpAnimating = false
+                            }
+                        }
+                    }) {
+                        ZStack {
+                            // 背景圓圈（不旋轉）
+                            Circle()
+                                .fill(selection == true ? Color.blue : Color.gray.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                                .animation(.none, value: selection) // 禁用顏色動畫
+                            
+                            // Icon（會旋轉）
+                            Image(systemName: "hand.thumbsup.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(selection == true ? .white : .gray)
+                                .rotationEffect(.degrees(isThumbsUpAnimating ? -20 : 0), anchor: .bottomLeading)
+                                .animation(.none, value: selection) // 禁用顏色動畫
+                        }
+                    }
+                }
+                
+                // 負評按鈕 (右邊) - 文字模式或圖示模式
+                if let negText = negativeText {
+                    // 文字模式 (人多，對應 false/倒讚)
+                    Button(action: {
+                        selection = false
+                    }) {
+                        Text(negText)
+                            .font(.subheadline.bold())
+                            .foregroundColor(selection == false ? .white : .gray)
+                            .frame(width: 36, height: 36) // 改為正方形
+                            .background(selection == false ? Color.red : Color.gray.opacity(0.15))
+                            .clipShape(Circle()) // 改為圓形
+                            .animation(.none, value: selection) // 禁用所有動畫
+                    }
+                } else {
+                    // 圖示模式 (👎) - 分離背景和 Icon
+                    Button(action: {
+                        selection = false
+                        
+                        withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.5, blendDuration: 0)) {
+                            isThumbsDownAnimating = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            withAnimation(.interactiveSpring(response: 0.3, dampingFraction: 0.5, blendDuration: 0)) {
+                                isThumbsDownAnimating = false
+                            }
+                        }
+                    }) {
+                        ZStack {
+                            // 背景圓圈（不旋轉）
+                            Circle()
+                                .fill(selection == false ? Color.red : Color.gray.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                                .animation(.none, value: selection) // 禁用顏色動畫
+                            
+                            // Icon（會旋轉）
+                            Image(systemName: "hand.thumbsdown.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(selection == false ? .white : .gray)
+                                .rotationEffect(.degrees(isThumbsDownAnimating ? 20 : 0), anchor: .topTrailing)
+                                .animation(.none, value: selection) // 禁用顏色動畫
+                        }
                     }
                 }
             }

@@ -1062,7 +1062,7 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if #available(iOS 26.0, *) {
-                        Button(LocalizedStrings.done.localized) { dismiss() }
+                    Button(LocalizedStrings.done.localized) { dismiss() }
                             .buttonStyle(.glassProminent)
                             .tint(.blue)
                     } else {

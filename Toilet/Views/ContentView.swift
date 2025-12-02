@@ -13,7 +13,7 @@ struct ContentView: View {
     // 接收 PremiumManager
     @EnvironmentObject var premiumManager: PremiumManager
     
-    @State private var sheetPresented: Bool = true // 控制 sheet 是否顯示
+    @State private var sheetPresented: Bool = false // 預設為 false，讓 sheet 延後彈出
     @State private var selectedDetent: PresentationDetent = .medium // 預設 detent 尺寸
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 25.0330, longitude: 121.5654), // 台北101
@@ -36,10 +36,11 @@ struct ContentView: View {
     @State private var selectedToilet: ToiletInfo? = nil // 選中的公廁
     @State private var selectedLocation: ToiletLocation? = nil // 選中的地點
     @State private var shouldEnableClustering: Bool = true // 根據地圖縮放動態啟用標記聚合
+    @State private var isFirstLaunch: Bool = true // 控制初始啟動狀態
 
     var body: some View {
         ZStack {
-            if toiletDataManager.isLoading {
+            if isFirstLaunch || toiletDataManager.isLoading {
                 LoadingView()
                     .transition(.opacity)
                     .zIndex(10) // 確保在最上層
@@ -153,8 +154,27 @@ struct ContentView: View {
         .onAppear {
             // 啟動時開始載入資料
             toiletDataManager.loadToiletData()
+            
+            // 稍微延遲一點再切換狀態，確保 LoadingView 有時間顯示
+            // 或者依賴 toiletDataManager.isLoading 的變化
+            // 這裡我們確保至少在開始載入後，isFirstLaunch 才變 false
+            // 但更好的方式是讓 toiletDataManager 載入完成後通知，不過這裡我們配合 isLoading
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isFirstLaunch = false
+            }
+        }
+        .onChange(of: toiletDataManager.isLoading) { isLoading in
+            // 當載入完成後，延遲彈出 Sheet
+            if !isLoading {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation(.spring()) {
+                        sheetPresented = true
+                    }
+                }
+            }
         }
         .animation(.easeInOut(duration: 0.5), value: toiletDataManager.isLoading)
+        .animation(.easeInOut(duration: 0.5), value: isFirstLaunch)
     }
     
     // 自動定位到目前位置（app 啟動時）
