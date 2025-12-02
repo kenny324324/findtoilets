@@ -21,13 +21,53 @@ struct FloorInfo: Identifiable, Codable, Equatable {
 
 // MARK: - 廁所地點
 struct ToiletLocation: Identifiable, Codable, Equatable {
-    let id = UUID()
+    let id: UUID
     let name: String                    // 主要名稱，如 "三峽區公有零售市場"
     let address: String                 // 地址
     let latitude: Double                // 緯度
     let longitude: Double               // 經度
     let administration: String          // 管理單位
     let toiletsByFloor: [FloorInfo]     // 按樓層分組的廁所
+    
+    // 自定義 init，用於生成穩定的 ID
+    init(name: String, address: String, latitude: Double, longitude: Double, administration: String, toiletsByFloor: [FloorInfo]) {
+        self.name = name
+        self.address = address
+        self.latitude = latitude
+        self.longitude = longitude
+        self.administration = administration
+        self.toiletsByFloor = toiletsByFloor
+        
+        // 使用 名稱+經緯度 作為種子來生成穩定的 UUID
+        // 這樣只要地點資訊沒變，ID 就不會變
+        let uniqueString = "\(name)-\(latitude)-\(longitude)"
+        // 使用簡單的雜湊來模擬穩定 ID (這裡用 UUID 的字串初始化功能，雖然不是標準 UUID v5 但夠用了)
+        // 或者更簡單：我們把字串雜湊後轉成 UUID
+        self.id = ToiletLocation.generateStableUUID(from: uniqueString)
+    }
+    
+    private static func generateStableUUID(from string: String) -> UUID {
+        let hash = string.hash
+        // 使用雜湊值來構建 UUID (這是一個簡單的實作，確保同一字串產生同一 UUID)
+        // 注意：這依賴於 Swift 的 hash 實作，跨平台或版本可能不穩定，但單機重啟通常沒問題
+        // 更好的做法是使用 MD5，但為了不引入額外庫，我們用這種方式
+        // 修正：Swift 的 hash 每次啟動會變，我們改用每個字元的數值總和 + 簡單位移
+        
+        var hashValue: UInt64 = 0
+        for char in string.utf8 {
+            hashValue = (hashValue &* 31) &+ UInt64(char)
+        }
+        
+        // 將 hashValue 擴展成 128 bit (UUID 需要)
+        let uuidString = String(format: "%08X-%04X-%04X-%04X-%012X",
+                                (hashValue >> 32) & 0xFFFFFFFF,
+                                (hashValue >> 16) & 0xFFFF,
+                                (hashValue >> 0) & 0xFFFF,
+                                (hashValue >> 48) & 0xFFFF,
+                                hashValue) // 這裡只是隨意填充，重點是穩定
+        
+        return UUID(uuidString: uuidString) ?? UUID()
+    }
     
     // 計算屬性：所有廁所（跨樓層）
     var allToilets: [ToiletInfo] {

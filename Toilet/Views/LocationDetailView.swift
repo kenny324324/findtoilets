@@ -17,30 +17,36 @@ struct LocationReport: Identifiable, Codable {
     let type: ReportType
     let rating: Int // 1-5 星
     let content: String? // 文字評論（可選）
+    let tags: [String] // 新增：問題標籤
+    let ratingDetails: [String: Int] // 新增：詳細評分 (1=好, 0=壞)
     let time: Date
     let userId: String // 匿名 ID
     let userNickname: String // 匿名暱稱
     
-    init(locationId: UUID, type: ReportType, rating: Int, content: String? = nil, userNickname: String) {
+    init(locationId: UUID, type: ReportType, rating: Int, content: String? = nil, userNickname: String, tags: [String] = [], ratingDetails: [String: Int] = [:]) {
         self.id = UUID()
         self.locationId = locationId
         self.type = type
         self.rating = rating
         self.content = content
+        self.tags = tags
+        self.ratingDetails = ratingDetails
         self.time = Date()
         self.userId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
         self.userNickname = userNickname
     }
     
     // 用於假資料
-    init(id: UUID = UUID(), locationId: UUID = UUID(), type: ReportType, rating: Int, content: String? = nil, time: Date, userNickname: String) {
+    init(id: UUID = UUID(), locationId: UUID = UUID(), type: ReportType, rating: Int, content: String? = nil, time: Date, userNickname: String, userId: String = "dummy_user", tags: [String] = [], ratingDetails: [String: Int] = [:]) {
         self.id = id
         self.locationId = locationId
         self.type = type
         self.rating = rating
         self.content = content
+        self.tags = tags
+        self.ratingDetails = ratingDetails
         self.time = time
-        self.userId = "dummy_user"
+        self.userId = userId
         self.userNickname = userNickname
     }
     
@@ -87,28 +93,42 @@ struct LocationReport: Identifiable, Codable {
     }
 }
 
-// 評論管理器 (模擬後端)
+// 評論管理器 (串接 CloudKit)
 class ReviewManager: ObservableObject {
     @Published var reviews: [UUID: [LocationReport]] = [:] // locationId -> reports
+    @Published var isLoading = false
     
-    init() {
-        // 載入一些假資料
-        loadDummyData()
+    func loadReviews(for locationId: UUID) {
+        isLoading = true
+        CloudKitManager.shared.fetchReviews(for: locationId) { [weak self] downloadedReviews in
+            DispatchQueue.main.async {
+                self?.reviews[locationId] = downloadedReviews
+                self?.isLoading = false
+            }
+        }
     }
     
     func addReview(_ report: LocationReport) {
+        // 1. 先在本地 UI 顯示 (讓使用者覺得很快)
         if reviews[report.locationId] == nil {
             reviews[report.locationId] = []
         }
         reviews[report.locationId]?.insert(report, at: 0)
+        
+        // 2. 背景上傳到 CloudKit
+        CloudKitManager.shared.saveReview(report: report) { result in
+            switch result {
+            case .success:
+                print("評論同步至雲端成功")
+            case .failure(let error):
+                print("評論同步失敗: \(error.localizedDescription)")
+                // 這裡可以做失敗處理，例如顯示驚嘆號，但為了體驗先不打斷使用者
+            }
+        }
     }
     
     func getReviews(for locationId: UUID) -> [LocationReport] {
         return reviews[locationId] ?? []
-    }
-    
-    private func loadDummyData() {
-        // 這裡之後可以接真實 API
     }
 }
 
@@ -639,6 +659,7 @@ struct LocationDetailView: View {
         .onAppear {
             isCalculatingDistance = true
             calculateWalkingTime()
+            reviewManager.loadReviews(for: location.id) // 下載該地點的評論
         }
         .onChange(of: locationManager.location) { _ in
             if isCalculatingDistance {
@@ -658,7 +679,7 @@ struct LocationDetailView: View {
         }
         // 評論輸入 Sheet
         .sheet(isPresented: $showingReviewInput) {
-            ReviewInputView(locationName: location.name, userNickname: $userNickname) { reportType, content, nickname in
+            ReviewInputView(locationName: location.name, userNickname: $userNickname) { reportType, rating, content, nickname, tags, ratingDetails in
                 // 儲存暱稱
                 userNickname = nickname
                 UserDefaults.standard.set(nickname, forKey: "UserNickname")
@@ -667,9 +688,11 @@ struct LocationDetailView: View {
                 let newReview = LocationReport(
                     locationId: location.id,
                     type: reportType,
-                    rating: reportType.defaultRating,
+                    rating: rating, // 使用使用者點的星星數
                     content: content.isEmpty ? nil : content,
-                    userNickname: nickname
+                    userNickname: nickname,
+                    tags: tags,
+                    ratingDetails: ratingDetails
                 )
                 
                 withAnimation {
@@ -878,17 +901,53 @@ struct ReviewRow: View {
                 
                 HStack(spacing: 4) {
                     ForEach(0..<5) { index in
-                        Image(systemName: index < review.rating ? "star.fill" : "star")
+                        Image(systemName: "star.fill") // 全部都用實心星星
                             .font(.caption2)
-                            .foregroundColor(index < review.rating ? .yellow : .gray.opacity(0.3))
+                            .foregroundColor(index < review.rating ? .yellow : Color.gray.opacity(0.2))
                     }
-                    
-                    Text("• \(review.type.rawValue)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    // 移除星星旁邊的類型文字
                 }
                 
-                if let content = review.content {
+                // 顯示標籤 (問題列表)
+                if !review.tags.isEmpty {
+                    Text("🏷️ " + review.tags.joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .padding(.top, 2)
+                }
+                
+                // 顯示詳細評分 (讚/倒讚)
+                if !review.ratingDetails.isEmpty {
+                    HStack(spacing: 6) {
+                        if let cleanliness = review.ratingDetails["cleanliness"] {
+                            Text("乾淨\(cleanliness == 1 ? "👍" : "👎")")
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(cleanliness == 1 ? Color.green.opacity(0.15) : Color.red.opacity(0.15))
+                                .cornerRadius(4)
+                        }
+                        if let convenience = review.ratingDetails["convenience"] {
+                            Text("方便\(convenience == 1 ? "👍" : "👎")")
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(convenience == 1 ? Color.green.opacity(0.15) : Color.red.opacity(0.15))
+                                .cornerRadius(4)
+                        }
+                        if let crowd = review.ratingDetails["crowd"] {
+                            Text("人潮\(crowd == 1 ? "少" : "多")")
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(crowd == 1 ? Color.green.opacity(0.15) : Color.red.opacity(0.15))
+                                .cornerRadius(4)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+                
+                if let content = review.content, !content.isEmpty {
                     Text(content)
                         .font(.subheadline)
                         .foregroundColor(.primary)
@@ -910,11 +969,12 @@ struct ReviewRow: View {
 struct ReviewInputView: View {
     let locationName: String
     @Binding var userNickname: String
-    let onSubmit: (LocationReport.ReportType, String, String) -> Void
+    // 更新：加上 rating 參數 (星星數)
+    let onSubmit: (LocationReport.ReportType, Int, String, String, [String], [String: Int]) -> Void
     @Environment(\.dismiss) private var dismiss
     
-    // 評分維度狀態 (true = 👍, false = 👎, nil = 未評)
-    @State private var ratingOverall: Bool? = nil
+    // 評分維度狀態
+    @State private var starRating: Int = 0 // 改為星星評分 (0-5，0代表未評)
     @State private var ratingCleanliness: Bool? = nil
     @State private var ratingConvenience: Bool? = nil
     @State private var ratingCrowd: Bool? = nil // true = 人少(好), false = 人多(壞)
@@ -931,20 +991,46 @@ struct ReviewInputView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     
-                    // 1. 多維度評分區塊
-                    VStack(spacing: 12) { // 縮小垂直間距 (原 20)
-                        RatingRow(title: "整體評價", selection: $ratingOverall)
-                        Divider()
-                        RatingRow(title: "乾淨度", selection: $ratingCleanliness)
-                        Divider()
-                        RatingRow(title: "方便度", selection: $ratingConvenience)
-                        Divider()
-                        RatingRow(title: "人潮狀況", selection: $ratingCrowd, positiveText: "少", negativeText: "多")
+                    // 1. 整體評價 (星星評分)
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("整體評價")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.primary)
+                            
+                            Spacer()
+                            
+                            // 5 顆星星可點選
+                            HStack(spacing: 8) {
+                                ForEach(1...5, id: \.self) { index in
+                                    Button(action: {
+                                        starRating = index
+                                    }) {
+                                        Image(systemName: "star.fill") // 全部都用實心星星
+                                            .font(.title3)
+                                            .foregroundColor(index <= starRating ? .yellow : Color.gray.opacity(0.2)) // 未選中用淺灰色
+                                    }
+                                    .animation(.none, value: starRating) // 禁用動畫，直接切換顏色
+                                }
+                            }
+                        }
+                        .padding(16)
+                        .background(Color.gray.opacity(0.05))
+                        .cornerRadius(16)
+                        
+                        // 2. 其他維度評分
+                        VStack(spacing: 12) {
+                            RatingRow(title: "乾淨度", selection: $ratingCleanliness)
+                            Divider()
+                            RatingRow(title: "方便度", selection: $ratingConvenience)
+                            Divider()
+                            RatingRow(title: "人潮狀況", selection: $ratingCrowd, positiveText: "少", negativeText: "多")
+                        }
+                        .padding(16)
+                        .background(Color.gray.opacity(0.05))
+                        .cornerRadius(16)
                     }
-                    .padding(16)
-                    .background(Color.gray.opacity(0.05))
-                    .cornerRadius(16)
-                    .padding(.horizontal, 20) // 補回 padding
+                    .padding(.horizontal, 20)
                     
                     // 2. 負面狀況回報 (多選, 橫向捲動)
                     VStack(alignment: .leading, spacing: 12) {
@@ -1034,16 +1120,16 @@ struct ReviewInputView: View {
                         submitButton
                             .buttonStyle(.glassProminent)
                             .tint(.blue)
-                            .disabled(ratingOverall == nil)
+                            .disabled(starRating == 0) // 改為檢查星星是否已評
                     } else {
                         submitButton
                             .fontWeight(.bold)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(ratingOverall == nil ? Color.gray : Color.blue)
+                            .background(starRating == 0 ? Color.gray : Color.blue)
                             .foregroundColor(.white)
                             .clipShape(Capsule())
-                            .disabled(ratingOverall == nil)
+                            .disabled(starRating == 0) // 改為檢查星星是否已評
                     }
                 }
             }
@@ -1055,7 +1141,7 @@ struct ReviewInputView: View {
         if userNickname.isEmpty { userNickname = "熱心路人" }
         
         // 決定主要類型 (ReportType)
-        // 邏輯：如果有選負面標籤，優先顯示負面類型；否則根據整體評價決定
+        // 根據星星數和選中的問題標籤來決定
         let finalType: LocationReport.ReportType
         if !selectedIssues.isEmpty {
             if selectedIssues.contains("缺衛生紙") { finalType = .noPaper }
@@ -1063,27 +1149,28 @@ struct ReviewInputView: View {
             else if selectedIssues.contains("人潮擁擠") { finalType = .crowded }
             else { finalType = .dirty } // 其他問題歸類為髒亂/問題
         } else {
-            // 沒選問題，看整體評價
-            if ratingOverall == true {
-                finalType = .clean // 好評預設
+            // 沒選問題，看星星數
+            if starRating >= 4 {
+                finalType = .clean // 4-5星視為好評
+            } else if starRating >= 3 {
+                finalType = .normal // 3星視為普通
             } else {
-                finalType = .normal // 差評但沒說原因，暫歸普通或待改善
+                finalType = .dirty // 1-2星視為差評
             }
         }
         
-        // 組合詳細評分內容到 comment 中 (因為目前 Model 沒欄位存)
-        var details = ""
-        if let r = ratingCleanliness { details += "乾淨度:\(r ? "👍" : "👎") " }
-        if let r = ratingConvenience { details += "方便度:\(r ? "👍" : "👎") " }
-        if let r = ratingCrowd { details += "人潮:\(r ? "少" : "多") " }
-        if !selectedIssues.isEmpty { details += "\n問題: " + selectedIssues.joined(separator: ", ") }
+        // 收集詳細評分
+        var details: [String: Int] = [:]
+        if let r = ratingCleanliness { details["cleanliness"] = r ? 1 : 0 }
+        if let r = ratingConvenience { details["convenience"] = r ? 1 : 0 }
+        if let r = ratingCrowd { details["crowd"] = r ? 1 : 0 } // 1=少(好), 0=多(壞)
         
-        let finalComment = (comment.isEmpty ? "" : comment + "\n") + details
-        
-        onSubmit(finalType, finalComment.trimmingCharacters(in: .whitespacesAndNewlines), userNickname)
+        // 更新：加上星星數參數
+        onSubmit(finalType, starRating, comment.trimmingCharacters(in: .whitespacesAndNewlines), userNickname, Array(selectedIssues), details)
         dismiss()
     }
 }
+
 
 // 評分列組件
 struct RatingRow: View {
