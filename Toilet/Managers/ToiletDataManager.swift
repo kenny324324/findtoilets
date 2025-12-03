@@ -351,7 +351,8 @@ class ToiletDataManager: ObservableObject {
     }
     
     // 根據地圖區域載入公廁（優化版本，含緩存）
-    func findToiletsInRegion(_ region: MKCoordinateRegion, maxCount: Int = 100) -> [ToiletInfo] {
+    func findToiletsInRegion(_ region: MKCoordinateRegion, maxCount: Int = 100, toiletsSource: [ToiletInfo]? = nil) -> [ToiletInfo] {
+        let toilets = toiletsSource ?? self.toilets
         // 生成緩存鍵
         let cacheKey = generateCacheKey(for: region)
         

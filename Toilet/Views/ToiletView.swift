@@ -22,8 +22,9 @@ struct ToiletView: View {
     @State private var errorMessage: String?
     @State private var nearbyLocations: [ToiletLocation] = [] // 緩存附近地點
     @State private var nearbyLocationsWithDistance: [(ToiletLocation, Int)] = [] // 緩存帶距離的附近地點
+    @State private var searchTask: Task<Void, Never>?
     @ObservedObject var locationManager: LocationManager // 使用傳入的 LocationManager
-    @StateObject private var toiletDataManager = ToiletDataManager() // 公廁資料管理器
+    @ObservedObject var toiletDataManager: ToiletDataManager // 共用外部傳入的公廁資料管理器
     @Binding var mapToilets: [ToiletInfo] // 要在地圖上顯示的公廁
     @Binding var mapLocations: [ToiletLocation] // 要在地圖上顯示的地點
     @State private var showingSettings = false // 控制設定 sheet 顯示
@@ -271,38 +272,66 @@ struct ToiletView: View {
 
     // 搜尋功能
     private func loadSuggestions(for query: String) {
-        if query.isEmpty {
-            // 清空搜尋文字時，清空建議並重新顯示附近地點
+        // 取消前一次搜尋工作，避免重複排程
+        searchTask?.cancel()
+        
+        // 清空搜尋文字時，清空建議並重新顯示附近地點
+        guard !query.isEmpty else {
+            isLoading = false
             suggestions = []
             mapToilets = nearbyLocations.flatMap { $0.allToilets }
             mapLocations = nearbyLocations
             return
         }
         
-        // 顯示載入狀態
-        isLoading = true
+        // 取得快照以避免背景執行緒直接存取 ObservableObject
+        let locationsSnapshot = toiletDataManager.locations
+        let lowercaseQuery = query.lowercased()
         
-        // 使用真實資料搜尋，至少顯示兩秒
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            isLoading = false
+        searchTask = Task {
+            await MainActor.run { isLoading = true }
             
-            // 使用 ToiletDataManager 搜尋地點
-            let searchResults = toiletDataManager.searchLocations(query: query)
-            
-            // 按距離排序搜尋結果（由小到大）
-            if locationManager.location != nil {
-                suggestions = searchResults.sorted { first, second in
-                    let firstDistance = getRealDistanceForLocation(first)
-                    let secondDistance = getRealDistanceForLocation(second)
-                    return firstDistance < secondDistance
-                }
-            } else {
-                // 如果沒有位置資訊，保持原始順序
-                suggestions = searchResults
+            // Debounce：稍等使用者輸入完
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000)
+            } catch {
+                await MainActor.run { isLoading = false }
+                return
             }
             
-            mapToilets = suggestions.flatMap { $0.allToilets }
-            mapLocations = suggestions
+            // 背景計算搜尋結果
+            let results = await Task.detached(priority: .userInitiated) {
+                locationsSnapshot.filter { location in
+                    location.name.lowercased().contains(lowercaseQuery) ||
+                    location.address.lowercased().contains(lowercaseQuery) ||
+                    location.administration.lowercased().contains(lowercaseQuery) ||
+                    location.availableTypes.contains { $0.lowercased().contains(lowercaseQuery) }
+                }
+            }.value
+            
+            guard !Task.isCancelled else {
+                await MainActor.run { isLoading = false }
+                return
+            }
+            
+            await MainActor.run {
+                // 按距離排序搜尋結果（由小到大）
+                let sortedResults: [ToiletLocation]
+                if locationManager.location != nil {
+                    sortedResults = results.sorted { first, second in
+                        let firstDistance = getRealDistanceForLocation(first)
+                        let secondDistance = getRealDistanceForLocation(second)
+                        return firstDistance < secondDistance
+                    }
+                } else {
+                    sortedResults = results
+                }
+                
+                suggestions = sortedResults
+                mapToilets = sortedResults.flatMap { $0.allToilets }
+                mapLocations = sortedResults
+                isLoading = false
+            }
         }
     }
     
@@ -1269,6 +1298,7 @@ struct SettingsView: View {
         sheetPresented: .constant(true),
         selectedDetent: .constant(.medium),
         locationManager: LocationManager(),
+        toiletDataManager: ToiletDataManager(),
         mapToilets: .constant([]),
         mapLocations: .constant([]),
         selectedToiletFromMap: .constant(nil),

@@ -6,72 +6,67 @@
 //
 
 import SwiftUI
+import MapKit
 
 struct LoadingView: View {
-    @State private var isAnimating = false
+    @State private var loadingProgress: CGFloat = 0.0
+    @State private var region = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 25.0330, longitude: 121.5654),
+        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+    )
     
     // 監聽系統配色方案
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         ZStack {
-            // 背景色：根據系統深淺色模式自動調整
-            Color(UIColor.systemBackground)
+            // 最底層：地圖背景
+            Map(coordinateRegion: .constant(region), interactionModes: [])
                 .ignoresSafeArea()
             
-            VStack(spacing: 40) {
+            // 中間層：毛玻璃遮罩
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+            
+            // 最上層：Logo
+            VStack {
                 Spacer()
                 
-                // App 名稱或 Logo
-                Text("Toilet Map")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary) // 自動適應文字顏色（黑/白）
-                    .padding(.bottom, 20)
-                
-                // 動畫長條圖 (模擬音樂頻譜效果)
-                HStack(spacing: 6) {
-                    ForEach(0..<3) { index in
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(hex: "1DB954")) // Spotify Green
-                            .frame(width: 6, height: isAnimating ? 40 : 15)
-                            .animation(
-                                Animation.easeInOut(duration: 0.5)
-                                    .repeatForever(autoreverses: true)
-                                    .delay(Double(index) * 0.2),
-                                value: isAnimating
+                GeometryReader { geometry in
+                    ZStack {
+                        // 底層：灰色的 Logo
+                        Image("app_logo")
+                            .resizable()
+                            .scaledToFit()
+                            .colorMultiply(.gray.opacity(0.3))
+                        
+                        // 上層：彩色的 Logo，從底部往上顯示
+                        Image("app_logo")
+                            .resizable()
+                            .scaledToFit()
+                            .mask(
+                                VStack(spacing: 0) {
+                                    Spacer()
+                                    Rectangle()
+                                        .frame(height: geometry.size.height * loadingProgress)
+                                }
                             )
                     }
                 }
-                .frame(height: 50)
+                .frame(width: 80, height: 80)
+                .offset(x: 5, y: -20) // 向右 5、向上 20
                 
                 Spacer()
-                
-                // 底部文字與進度條
-                VStack(spacing: 12) {
-                    Text("Almost ready...")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.secondary) // 自動適應次要文字顏色
-                    
-                    // 進度條
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.secondary.opacity(0.2)) // 自動適應進度條底色
-                            .frame(height: 4)
-                        
-                        Capsule()
-                            .fill(Color(hex: "1DB954"))
-                            .frame(width: 100, height: 4) // 固定長度或動態
-                            .offset(x: isAnimating ? 200 : -200)
-                            .mask(Capsule().frame(width: 200, height: 4)) // 遮罩
-                    }
-                    .frame(width: 200)
-                    .clipShape(Capsule())
-                }
-                .padding(.bottom, 50)
             }
         }
         .onAppear {
-            isAnimating = true
+            // 載入動畫（稍微延遲開始，確保完整填充）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 2.2)) {
+                    loadingProgress = 1.0
+                }
+            }
         }
     }
 }

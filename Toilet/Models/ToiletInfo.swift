@@ -11,7 +11,8 @@ import CoreLocation
 
 // 台灣公廁資料模型
 struct ToiletInfo: Codable, Identifiable, Equatable {
-    let id = UUID() // 為 SwiftUI List 提供唯一識別符
+    // 使用資料內建編號作為穩定 ID，避免每次載入都更換 UUID 造成列表/地圖重建
+    var id: String { number }
     let county: String          // 縣市代碼
     let city: String            // 鄉鎮市區代碼
     let village: String         // 村里

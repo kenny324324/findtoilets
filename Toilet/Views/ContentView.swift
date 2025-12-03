@@ -37,15 +37,12 @@ struct ContentView: View {
     @State private var selectedLocation: ToiletLocation? = nil // 選中的地點
     @State private var shouldEnableClustering: Bool = true // 根據地圖縮放動態啟用標記聚合
     @State private var isFirstLaunch: Bool = true // 控制初始啟動狀態
+    @State private var animationCompleted: Bool = false // 動畫是否完成
 
     var body: some View {
         ZStack {
-            if isFirstLaunch || toiletDataManager.isLoading {
-                LoadingView()
-                    .transition(.opacity)
-                    .zIndex(10) // 確保在最上層
-            } else {
-                NavigationStack {
+            // 主畫面始終存在
+            NavigationStack {
                     ZStack(alignment: .topLeading) {
                     // 地圖視圖
                     MapView(region: $region, mapType: mapType, userLocation: locationManager.location, toilets: mapToilets, locations: mapLocations, shouldJumpToLocation: $shouldJumpToLocation, onRegionChanged: { newRegion in
@@ -149,23 +146,27 @@ struct ContentView: View {
                 }
                 }
                 .zIndex(1)
+            
+            // LoadingView 覆蓋在主畫面上方
+            if isFirstLaunch || !animationCompleted || toiletDataManager.isLoading {
+                LoadingView()
+                    .transition(.opacity)
+                    .zIndex(10) // 確保在最上層
             }
         }
         .onAppear {
             // 啟動時開始載入資料
             toiletDataManager.loadToiletData()
             
-            // 稍微延遲一點再切換狀態，確保 LoadingView 有時間顯示
-            // 或者依賴 toiletDataManager.isLoading 的變化
-            // 這裡我們確保至少在開始載入後，isFirstLaunch 才變 false
-            // 但更好的方式是讓 toiletDataManager 載入完成後通知，不過這裡我們配合 isLoading
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // 確保 LoadingView 動畫完整播放（0.1秒延遲 + 2.2秒動畫 + 0.7秒停留 = 3.0秒）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
                 isFirstLaunch = false
+                animationCompleted = true
             }
         }
         .onChange(of: toiletDataManager.isLoading) { isLoading in
-            // 當載入完成後，延遲彈出 Sheet
-            if !isLoading {
+            // 當載入完成且動畫也完成後，才彈出 Sheet
+            if !isLoading && animationCompleted && !isFirstLaunch {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     withAnimation(.spring()) {
                         sheetPresented = true
@@ -173,8 +174,19 @@ struct ContentView: View {
                 }
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: toiletDataManager.isLoading)
-        .animation(.easeInOut(duration: 0.5), value: isFirstLaunch)
+        .onChange(of: animationCompleted) { completed in
+            // 當動畫完成且數據也載入完成後，才彈出 Sheet
+            if completed && !toiletDataManager.isLoading {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation(.spring()) {
+                        sheetPresented = true
+                    }
+                }
+            }
+        }
+        .animation(.easeInOut(duration: 0.8), value: toiletDataManager.isLoading)
+        .animation(.easeInOut(duration: 0.8), value: isFirstLaunch)
+        .animation(.easeInOut(duration: 0.8), value: animationCompleted)
     }
     
     // 自動定位到目前位置（app 啟動時）
@@ -277,6 +289,10 @@ struct ContentView: View {
         // 取消之前的計時器
         regionUpdateTimer?.invalidate()
         
+        // 取得快照，避免背景執行緒直接讀寫 ObservableObject
+        let toiletsSnapshot = toiletDataManager.toilets
+        let locationsSnapshot = toiletDataManager.locations
+        
         
         // 限制縮放範圍
         let clampedRegion = clampRegion(region)
@@ -287,9 +303,9 @@ struct ContentView: View {
                 // 使用異步載入提升性能
                 DispatchQueue.global(qos: .userInitiated).async {
                     // 使用 ToiletDataManager 根據地圖區域載入公廁（使用限制後的區域）
-                    let newToilets = self.toiletDataManager.findToiletsInRegion(clampedRegion, maxCount: 500)
+                    let newToilets = self.toiletDataManager.findToiletsInRegion(clampedRegion, maxCount: 500, toiletsSource: toiletsSnapshot)
                     let toiletIds = Set(newToilets.map { $0.id })
-                    let newLocations = self.toiletDataManager.locations.filter { location in
+                    let newLocations = locationsSnapshot.filter { location in
                         location.allToilets.contains { toiletIds.contains($0.id) }
                     }
                     
