@@ -241,10 +241,16 @@ class CloudKitManager: ObservableObject {
             record["ratingDetails"] = jsonString
         }
         
+        // 新增：儲存性別（用於該則評論的頭像顏色）
+        if let gender = report.userGender {
+            record["userGender"] = gender.rawValue as CKRecordValue
+        }
+        
         print("📤 [CloudKit] 準備上傳評論...")
         print("   - Location ID: \(report.locationId.uuidString)")
         print("   - Content: \(report.content ?? "無內容")")
         print("   - Tags: \(report.tags)")
+        print("   - Gender: \(report.userGender?.title ?? "未設定")")
         
         publicDB.save(record) { savedRecord, error in
             DispatchQueue.main.async {
@@ -313,6 +319,13 @@ class CloudKitManager: ObservableObject {
                     ratingDetails = dict
                 }
                 
+                // 讀取性別（如果有的話）
+                var gender: UserGender? = nil
+                if let genderRawValue = record["userGender"] as? Int,
+                   let userGender = UserGender(rawValue: genderRawValue) {
+                    gender = userGender
+                }
+                
                 return LocationReport(
                     id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
                     locationId: locationUUID,
@@ -323,7 +336,8 @@ class CloudKitManager: ObservableObject {
                     userNickname: nickname,
                     userId: creatorID,
                     tags: tags,
-                    ratingDetails: ratingDetails
+                    ratingDetails: ratingDetails,
+                    userGender: gender
                 )
             }
             

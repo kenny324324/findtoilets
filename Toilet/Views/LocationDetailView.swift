@@ -116,7 +116,10 @@ class ReviewManager: ObservableObject {
                         var newReport = report
                         if let profile = profiles[report.userId] {
                             newReport.userNickname = profile.nickname
-                            newReport.userGender = profile.gender
+                            // 只有當評論沒有性別資訊時，才使用 Profile 的性別
+                            if newReport.userGender == nil {
+                                newReport.userGender = profile.gender
+                            }
                         }
                         return newReport
                     }
@@ -655,6 +658,7 @@ struct LocationDetailView: View {
                     
                     // --- 社群評論區 (新增) ---
                     CommunityReviewSection(
+                        locationName: location.name,
                         reviews: reviewManager.getReviews(for: location.id),
                         onAddReview: { showingReviewInput = true }
                     )
@@ -726,12 +730,20 @@ struct LocationDetailView: View {
         // 評論輸入 Sheet
         .sheet(isPresented: $showingReviewInput) {
             ReviewInputView(locationName: location.name, userNickname: $userNickname) { reportType, rating, content, nickname, tags, ratingDetails, gender in
-                // 儲存暱稱
+                // 儲存暱稱到 UserDefaults
                 userNickname = nickname
                 UserDefaults.standard.set(nickname, forKey: "UserNickname")
                 
-                // 這裡會由 CloudKitManager 內部存 UserProfile (在 ReviewInputView 裡做)，所以這裡不需要特別存
-                // 但為了讓 UI 立即更新，我們手動更新 UserProfile
+                // 只在暱稱改變時更新 UserProfile，但保持原有的性別設定
+                if let currentProfile = CloudKitManager.shared.currentUserProfile {
+                    // 如果已有 Profile，只更新暱稱，性別保持不變
+                    if currentProfile.nickname != nickname {
+                        CloudKitManager.shared.saveUserProfile(nickname: nickname, gender: currentProfile.gender) { _ in }
+                    }
+                } else {
+                    // 如果沒有 Profile，創建一個（使用預設性別）
+                    CloudKitManager.shared.saveUserProfile(nickname: nickname, gender: .secret) { _ in }
+                }
                 
                 // 新增評論
                 var newReview = LocationReport(
@@ -869,6 +881,7 @@ struct LocationDetailView: View {
 // MARK: - 社群評論區組件
 
 struct CommunityReviewSection: View {
+    let locationName: String
     let reviews: [LocationReport]
     let onAddReview: () -> Void
     @State private var showingAllReviews: Bool = false // 控制顯示所有評論的 sheet
@@ -938,7 +951,7 @@ struct CommunityReviewSection: View {
             }
         }
         .sheet(isPresented: $showingAllReviews) {
-            AllReviewsSheet(reviews: reviews, onAddReview: onAddReview)
+            AllReviewsSheet(locationName: locationName, reviews: reviews, onAddReview: onAddReview)
         }
     }
 }
@@ -957,14 +970,12 @@ struct ReviewRow: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // 頭像
+            // 頭像 - 根據性別顯示顏色
             ZStack {
                 Circle()
-                    .fill(genderColor.opacity(0.1)) // 使用性別顏色
+                    .fill(genderColor.opacity(0.1))
                     .frame(width: 40, height: 40)
                 
-                // 顯示頭像圖標 (如果是狀態圖標，可以保留，或者改用人頭)
-                // 根據需求：男生用藍色，女生用紅色，不透露用灰色
                 Image(systemName: "person.fill")
                     .foregroundColor(genderColor)
                     .font(.system(size: 20))
@@ -974,19 +985,6 @@ struct ReviewRow: View {
                 HStack {
                     Text(review.userNickname)
                         .font(.subheadline.bold())
-                    
-                    // 旁邊顯示評論類型的 Badge (原本的頭像)
-                    HStack(spacing: 4) {
-                        Image(systemName: review.type.icon)
-                            .font(.caption2)
-                        Text(review.type.rawValue)
-                            .font(.caption2)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(review.type.color.opacity(0.1))
-                    .foregroundColor(review.type.color)
-                    .cornerRadius(4)
                     
                     Spacer()
                     Text(timeAgoDisplay(date: review.time))
@@ -1002,40 +1000,51 @@ struct ReviewRow: View {
                     }
                 }
                 
-                // 顯示標籤 (問題列表)
+                // 顯示標籤 (問題列表) - 灰色圖示+文字
                 if !review.tags.isEmpty {
-                    Text("🏷️ " + review.tags.joined(separator: ", "))
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .padding(.top, 2)
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text(review.tags.joined(separator: ", "))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 2)
                 }
                 
-                // 顯示詳細評分 (讚/倒讚)
+                // 顯示詳細評分 (用圖示而非彩色背景)
                 if !review.ratingDetails.isEmpty {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         if let cleanliness = review.ratingDetails["cleanliness"] {
-                            Text("乾淨\(cleanliness == 1 ? "👍" : "👎")")
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(cleanliness == 1 ? Color.green.opacity(0.15) : Color.red.opacity(0.15))
-                                .cornerRadius(4)
+                            HStack(spacing: 2) {
+                                Image(systemName: cleanliness == 1 ? "hand.thumbsup" : "hand.thumbsdown")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("乾淨")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         if let convenience = review.ratingDetails["convenience"] {
-                            Text("方便\(convenience == 1 ? "👍" : "👎")")
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(convenience == 1 ? Color.green.opacity(0.15) : Color.red.opacity(0.15))
-                                .cornerRadius(4)
+                            HStack(spacing: 2) {
+                                Image(systemName: convenience == 1 ? "hand.thumbsup" : "hand.thumbsdown")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text("方便")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         if let crowd = review.ratingDetails["crowd"] {
-                            Text("人潮\(crowd == 1 ? "少" : "多")")
-                                .font(.caption2)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(crowd == 1 ? Color.green.opacity(0.15) : Color.red.opacity(0.15))
-                                .cornerRadius(4)
+                            HStack(spacing: 2) {
+                                Image(systemName: "person.2")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text(crowd == 1 ? "人少" : "人多")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                     .padding(.top, 2)
@@ -1061,27 +1070,215 @@ struct ReviewRow: View {
 // MARK: - 所有評論 Sheet
 
 struct AllReviewsSheet: View {
+    let locationName: String
     let reviews: [LocationReport]
     let onAddReview: () -> Void
     @Environment(\.dismiss) private var dismiss
     
+    // 排序狀態
+    @State private var sortOption: SortOption = .newest
+    
+    enum SortOption: String, CaseIterable {
+        case newest = "最新"
+        case oldest = "最舊"
+        case highestRating = "評分最高"
+        case lowestRating = "評分最低"
+    }
+    
+    // 計算平均評分
+    private var averageRating: Double {
+        guard !reviews.isEmpty else { return 0 }
+        let sum = reviews.reduce(0) { $0 + $1.rating }
+        return Double(sum) / Double(reviews.count)
+    }
+    
+    // 計算每個星級的數量
+    private func countForStars(_ starCount: Int) -> Int {
+        return reviews.filter { $0.rating == starCount }.count
+    }
+    
+    // 計算每個星級的百分比
+    private func percentageForStars(_ starCount: Int) -> Double {
+        guard !reviews.isEmpty else { return 0 }
+        let count = countForStars(starCount)
+        return Double(count) / Double(reviews.count)
+    }
+    
+    // 排序後的評論
+    private var sortedReviews: [LocationReport] {
+        switch sortOption {
+        case .newest:
+            return reviews.sorted { $0.time > $1.time }
+        case .oldest:
+            return reviews.sorted { $0.time < $1.time }
+        case .highestRating:
+            return reviews.sorted { $0.rating > $1.rating }
+        case .lowestRating:
+            return reviews.sorted { $0.rating < $1.rating }
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 16) {
-                    ForEach(reviews) { review in
-                        ReviewRow(review: review)
-                            .padding(.horizontal, 20)
+                VStack(spacing: 0) {
+                    // 評分統計卡片
+                    HStack(alignment: .top, spacing: 24) {
+                        // 左側：評分數字和星星
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(String(format: "%.1f", averageRating))
+                                .font(.customRounded(40, weight: .bold))
+                                .foregroundColor(.primary)
+                            
+                            // 星星顯示
+                            HStack(spacing: 2) {
+                                ForEach(1...5, id: \.self) { index in
+                                    let starFill = getStarFillAmount(for: index, average: averageRating)
+                                    ZStack {
+                                        // 背景空星
+                                        Image(systemName: "star.fill")
+                                            .font(.caption)
+                                            .foregroundColor(Color.gray.opacity(0.15))
+                                        
+                                        // 實心部分
+                                        if starFill > 0 {
+                                            GeometryReader { geometry in
+                                                Image(systemName: "star.fill")
+                                                    .font(.caption)
+                                                    .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.0))
+                                                    .mask(
+                                                        Rectangle()
+                                                            .size(width: geometry.size.width * starFill, height: geometry.size.height)
+                                                    )
+                                            }
+                                        }
+                                    }
+                                    .frame(width: 16, height: 16)
+                                }
+                            }
+                            
+                            Text("(\(reviews.count))")
+                                .font(.subheadlineRounded())
+                                .foregroundColor(.secondary)
+                        }
                         
-                        if review.id != reviews.last?.id {
-                            Divider()
-                                .padding(.horizontal, 20)
+                        // 右側：星級分布條形圖
+                        VStack(spacing: 0) {
+                            ForEach((1...5).reversed(), id: \.self) { starLevel in
+                                // 條形圖
+                                ZStack(alignment: .leading) {
+                                    // 背景條
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.gray.opacity(0.15))
+                                    
+                                    // 填充條
+                                    GeometryReader { geometry in
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(Color(red: 1.0, green: 0.8, blue: 0.0))
+                                            .frame(width: geometry.size.width * percentageForStars(starLevel))
+                                    }
+                                }
+                                .frame(height: 10)
+                                
+                                if starLevel > 1 {
+                                    Spacer()
+                                        .frame(height: 4)
+                                }
+                            }
+                        }
+                        .frame(maxHeight: .infinity)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 24)
+                    
+                    // 排序菜單
+                    HStack {
+                        Text("所有評論")
+                            .font(.title3Rounded(.bold))
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        if #available(iOS 26.0, *) {
+                            Menu {
+                                ForEach(SortOption.allCases, id: \.self) { option in
+                                    Button(action: {
+                                        sortOption = option
+                                    }) {
+                                        HStack {
+                                            Text(option.rawValue)
+                                            if sortOption == option {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(sortOption.rawValue)
+                                        .font(.subheadlineRounded(.semibold))
+                                        .foregroundColor(Color.black.opacity(0.8))
+                                        .frame(minWidth: 55, alignment: .center)
+                                    
+                                    Image(systemName: "chevron.down")
+                                        .font(.caption2)
+                                        .foregroundColor(Color.black.opacity(0.8))
+                                }
+                            }
+                            .buttonStyle(.glassProminent)
+                            .tint(.clear)
+                        } else {
+                            Menu {
+                                ForEach(SortOption.allCases, id: \.self) { option in
+                                    Button(action: {
+                                        sortOption = option
+                                    }) {
+                                        HStack {
+                                            Text(option.rawValue)
+                                            if sortOption == option {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(sortOption.rawValue)
+                                        .font(.subheadlineRounded(.semibold))
+                                        .foregroundColor(.primary)
+                                        .frame(minWidth: 55, alignment: .center)
+                                    
+                                    Image(systemName: "chevron.down")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.gray.opacity(0.1))
+                                .clipShape(Capsule())
+                            }
                         }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+                    
+                    // 評論列表
+                    VStack(spacing: 16) {
+                        ForEach(sortedReviews) { review in
+                            ReviewRow(review: review)
+                                .padding(.horizontal, 20)
+                            
+                            if review.id != sortedReviews.last?.id {
+                                Divider()
+                                    .padding(.horizontal, 20)
+                            }
+                        }
+                    }
+                    .padding(.bottom, 20)
                 }
-                .padding(.vertical, 20)
             }
-            .navigationTitle("所有評論")
+            .navigationTitle(locationName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -1117,6 +1314,17 @@ struct AllReviewsSheet: View {
                     }
                 }
             }
+        }
+    }
+    
+    // 計算每顆星星的填充量（支持半星）
+    private func getStarFillAmount(for starIndex: Int, average: Double) -> CGFloat {
+        if average >= Double(starIndex) {
+            return 1.0 // 完全填充
+        } else if average > Double(starIndex - 1) {
+            return CGFloat(average - Double(starIndex - 1)) // 部分填充
+        } else {
+            return 0.0 // 不填充
         }
     }
 }
@@ -1334,12 +1542,10 @@ struct ReviewInputView: View {
         let finalNickname = userNickname.trimmingCharacters(in: .whitespacesAndNewlines)
         if finalNickname.isEmpty { return } // 理論上被 disabled 擋住了
         
-        // 1. 先儲存/更新 UserProfile
-        CloudKitManager.shared.saveUserProfile(nickname: finalNickname, gender: gender) { result in
-            // 不管成功失敗都繼續送出評論 (可能是離線)
-        }
+        // 注意：這裡不更新性別到資料庫，只用於本次評論
+        // 只有在設定頁面修改性別時才會更新到資料庫
         
-        // 2. 準備評論資料
+        // 準備評論資料
         
         // 決定主要類型 (ReportType)
         // 根據星星數和選中的問題標籤來決定
