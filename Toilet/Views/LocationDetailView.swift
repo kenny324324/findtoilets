@@ -100,6 +100,7 @@ struct LocationReport: Identifiable, Codable {
 class ReviewManager: ObservableObject {
     @Published var reviews: [UUID: [LocationReport]] = [:] // locationId -> reports
     @Published var isLoading = false
+    @Published var existingReview: LocationReport? = nil // 使用者的現有評論
     
     func loadReviews(for locationId: UUID) {
         isLoading = true
@@ -131,12 +132,32 @@ class ReviewManager: ObservableObject {
         }
     }
     
+    // 檢查使用者是否已對該地點留過言
+    func checkExistingReview(for locationId: UUID, completion: @escaping () -> Void) {
+        CloudKitManager.shared.checkExistingReview(for: locationId) { [weak self] existingReport in
+            DispatchQueue.main.async {
+                self?.existingReview = existingReport
+                completion()
+            }
+        }
+    }
+    
     func addReview(_ report: LocationReport) {
-        // 1. 先在本地 UI 顯示 (讓使用者覺得很快)
+        // 1. 更新本地快取（如果是更新現有評論，需要移除舊的）
         if reviews[report.locationId] == nil {
             reviews[report.locationId] = []
         }
+        
+        // 移除舊評論（如果有）
+        if let existingIndex = reviews[report.locationId]?.firstIndex(where: { $0.userId == report.userId }) {
+            reviews[report.locationId]?.remove(at: existingIndex)
+        }
+        
+        // 插入新評論在最前面
         reviews[report.locationId]?.insert(report, at: 0)
+        
+        // 更新 existingReview
+        existingReview = report
         
         // 2. 背景上傳到 CloudKit
         CloudKitManager.shared.saveReview(report: report) { result in
@@ -660,7 +681,12 @@ struct LocationDetailView: View {
                     CommunityReviewSection(
                         locationName: location.name,
                         reviews: reviewManager.getReviews(for: location.id),
-                        onAddReview: { showingReviewInput = true }
+                        hasExistingReview: reviewManager.existingReview != nil,
+                        onAddReview: { 
+                            reviewManager.checkExistingReview(for: location.id) {
+                                showingReviewInput = true
+                            }
+                        }
                     )
                     .padding(.bottom, 20) // 縮小外部底部間距 (原 40)
                 }
@@ -686,15 +712,25 @@ struct LocationDetailView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if #available(iOS 26.0, *) {
-                        Button(action: { showingReviewInput = true }) {
-                            Image(systemName: "plus.message.fill")
+                        Button(action: { 
+                            // 檢查是否已有評論
+                            reviewManager.checkExistingReview(for: location.id) {
+                                showingReviewInput = true
+                            }
+                        }) {
+                            Image(systemName: reviewManager.existingReview != nil ? "pencil" : "plus.message.fill")
                                 .font(.system(size: 14, weight: .semibold))
                         }
                         .buttonStyle(.glassProminent)
                         .tint(.orange)
                     } else {
-                        Button(action: { showingReviewInput = true }) {
-                            Image(systemName: "plus.message.fill")
+                        Button(action: { 
+                            // 檢查是否已有評論
+                            reviewManager.checkExistingReview(for: location.id) {
+                                showingReviewInput = true
+                            }
+                        }) {
+                            Image(systemName: reviewManager.existingReview != nil ? "pencil" : "plus.message.fill")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.white)
                                 .padding(8)
@@ -710,6 +746,7 @@ struct LocationDetailView: View {
             isCalculatingDistance = true
             calculateWalkingTime()
             reviewManager.loadReviews(for: location.id) // 下載該地點的評論
+            reviewManager.checkExistingReview(for: location.id) { } // 檢查使用者是否已留言
         }
         .onChange(of: locationManager.location) { _ in
             if isCalculatingDistance {
@@ -729,7 +766,11 @@ struct LocationDetailView: View {
         }
         // 評論輸入 Sheet
         .sheet(isPresented: $showingReviewInput) {
-            ReviewInputView(locationName: location.name, userNickname: $userNickname) { reportType, rating, content, nickname, tags, ratingDetails, gender in
+            ReviewInputView(
+                locationName: location.name, 
+                userNickname: $userNickname,
+                existingReview: reviewManager.existingReview
+            ) { reportType, rating, content, nickname, tags, ratingDetails, gender in
                 // 儲存暱稱到 UserDefaults
                 userNickname = nickname
                 UserDefaults.standard.set(nickname, forKey: "UserNickname")
@@ -883,6 +924,7 @@ struct LocationDetailView: View {
 struct CommunityReviewSection: View {
     let locationName: String
     let reviews: [LocationReport]
+    let hasExistingReview: Bool // 新增：使用者是否已留言
     let onAddReview: () -> Void
     @State private var showingAllReviews: Bool = false // 控制顯示所有評論的 sheet
     
@@ -894,12 +936,12 @@ struct CommunityReviewSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // 標題與箭頭按鈕
-            HStack {
-                // 只有超過3筆評論時，整個標題區域才可點擊
-                if reviews.count > 3 {
-                    Button(action: {
-                        showingAllReviews = true
-                    }) {
+            // 只有超過3筆評論時，整個標題區域才可點擊
+            if reviews.count > 3 {
+                Button(action: {
+                    showingAllReviews = true
+                }) {
+                    HStack {
                         HStack(spacing: 8) {
                             Text("評論")
                                 .font(.title3Rounded(.bold))
@@ -909,16 +951,23 @@ struct CommunityReviewSection: View {
                                 .font(.subheadlineRounded(.semibold))
                                 .foregroundColor(.primary)
                         }
+                        
+                        Spacer()
                     }
-                } else {
-                    // 評論少於等於3筆時，只顯示標題不可點擊
+                    .padding(.horizontal, 20)
+                    .contentShape(Rectangle()) // 確保整個區域都可點擊
+                }
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                // 評論少於等於3筆時，只顯示標題不可點擊
+                HStack {
                     Text("評論")
                         .font(.title3Rounded(.bold))
+                    
+                    Spacer()
                 }
-                
-                Spacer()
+                .padding(.horizontal, 20)
             }
-            .padding(.horizontal, 20)
             
             if reviews.isEmpty {
                 // 無評論狀態
@@ -951,7 +1000,7 @@ struct CommunityReviewSection: View {
             }
         }
         .sheet(isPresented: $showingAllReviews) {
-            AllReviewsSheet(locationName: locationName, reviews: reviews, onAddReview: onAddReview)
+            AllReviewsSheet(locationName: locationName, reviews: reviews, hasExistingReview: hasExistingReview, onAddReview: onAddReview)
         }
     }
 }
@@ -1072,6 +1121,7 @@ struct ReviewRow: View {
 struct AllReviewsSheet: View {
     let locationName: String
     let reviews: [LocationReport]
+    let hasExistingReview: Bool // 新增：使用者是否已留言
     let onAddReview: () -> Void
     @Environment(\.dismiss) private var dismiss
     
@@ -1294,7 +1344,7 @@ struct AllReviewsSheet: View {
                             dismiss()
                             onAddReview()
                         }) {
-                            Image(systemName: "plus.message.fill")
+                            Image(systemName: hasExistingReview ? "pencil" : "plus.message.fill")
                                 .font(.system(size: 14, weight: .semibold))
                         }
                         .buttonStyle(.glassProminent)
@@ -1304,7 +1354,7 @@ struct AllReviewsSheet: View {
                             dismiss()
                             onAddReview()
                         }) {
-                            Image(systemName: "plus.message.fill")
+                            Image(systemName: hasExistingReview ? "pencil" : "plus.message.fill")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.white)
                                 .padding(8)
@@ -1334,6 +1384,7 @@ struct AllReviewsSheet: View {
 struct ReviewInputView: View {
     let locationName: String
     @Binding var userNickname: String
+    let existingReview: LocationReport? // 新增：如果有值代表是編輯模式
     // 更新：加上 rating 參數 (星星數) 和 性別
     let onSubmit: (LocationReport.ReportType, Int, String, String, [String], [String: Int], UserGender) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -1355,6 +1406,11 @@ struct ReviewInputView: View {
     @State private var showingNameInputAlert = false // 控制暱稱輸入彈窗
     
     let issueTags = ["缺衛生紙", "髒亂異味", "設備損壞", "維修中", "地面濕滑", "馬桶堵塞", "照明不足"]
+    
+    // 是否為編輯模式
+    private var isEditMode: Bool {
+        existingReview != nil
+    }
     
     var body: some View {
         NavigationStack {
@@ -1477,14 +1533,14 @@ struct ReviewInputView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively) // 滑動時關閉鍵盤
-            .navigationTitle("撰寫評論")
+            .navigationTitle(isEditMode ? "修改評論" : "撰寫評論")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    let submitButton = Button("送出") {
+                    let submitButton = Button(isEditMode ? "更新" : "送出") {
                         if userNickname.isEmpty {
                             // 如果沒暱稱，跳出輸入框
                             showingNameInputAlert = true
@@ -1522,6 +1578,10 @@ struct ReviewInputView: View {
         .onAppear {
             // 嘗試載入現有的個人檔案
             loadUserProfile()
+            // 如果是編輯模式，預填現有評論內容
+            if let existing = existingReview {
+                loadExistingReviewData(existing)
+            }
         }
     }
     
@@ -1535,6 +1595,36 @@ struct ReviewInputView: View {
             // 否則，使用 UserDefaults 裡的暱稱 (相容舊版)
             // 性別預設為不透露
         }
+    }
+    
+    // 載入現有評論資料
+    private func loadExistingReviewData(_ review: LocationReport) {
+        // 評分
+        self.starRating = review.rating
+        
+        // 問題標籤
+        self.selectedIssues = Set(review.tags)
+        
+        // 留言內容
+        self.comment = review.content ?? ""
+        
+        // 詳細評分
+        if let cleanliness = review.ratingDetails["cleanliness"] {
+            self.ratingCleanliness = cleanliness == 1
+        }
+        if let convenience = review.ratingDetails["convenience"] {
+            self.ratingConvenience = convenience == 1
+        }
+        if let crowd = review.ratingDetails["crowd"] {
+            self.ratingCrowd = crowd == 1
+        }
+        
+        // 性別
+        if let reviewGender = review.userGender {
+            self.gender = reviewGender
+        }
+        
+        print("✏️ [編輯模式] 已載入現有評論資料")
     }
     
     // 處理送出邏輯

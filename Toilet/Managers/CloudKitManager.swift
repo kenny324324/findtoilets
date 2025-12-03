@@ -217,10 +217,20 @@ class CloudKitManager: ObservableObject {
     
     // MARK: - Review Management
     
-    // 2. 上傳評論
+    // 2. 上傳評論（更新：使用固定 recordName 防止重複留言）
     func saveReview(report: LocationReport, completion: @escaping (Result<Bool, Error>) -> Void) {
+        guard let currentUserID = currentUserID else {
+            completion(.failure(NSError(domain: "CloudKit", code: 401, userInfo: [NSLocalizedDescriptionKey: "未登入 iCloud"])))
+            return
+        }
+        
+        // 關鍵：使用 locationId + userId 組成唯一的 recordName
+        // 這樣同一個使用者對同一個地點只能有一筆評論（更新而非新增）
+        let uniqueRecordName = "\(report.locationId.uuidString)_\(currentUserID.recordName)"
+        let recordID = CKRecord.ID(recordName: uniqueRecordName, zoneID: CKRecordZone.default().zoneID)
+        
         // 將 LocationReport 轉換為 CKRecord
-        let record = CKRecord(recordType: "Review")
+        let record = CKRecord(recordType: "Review", recordID: recordID)
         
         // 儲存欄位
         record["locationId"] = report.locationId.uuidString
@@ -247,6 +257,7 @@ class CloudKitManager: ObservableObject {
         }
         
         print("📤 [CloudKit] 準備上傳評論...")
+        print("   - Record Name (唯一): \(uniqueRecordName)")
         print("   - Location ID: \(report.locationId.uuidString)")
         print("   - Content: \(report.content ?? "無內容")")
         print("   - Tags: \(report.tags)")
@@ -260,6 +271,76 @@ class CloudKitManager: ObservableObject {
                 } else {
                     print("\n✅ [CloudKit] 上傳評論成功！")
                     completion(.success(true))
+                }
+            }
+        }
+    }
+    
+    // 2-1. 檢查使用者是否已對該地點留過言
+    func checkExistingReview(for locationId: UUID, completion: @escaping (LocationReport?) -> Void) {
+        guard let currentUserID = currentUserID else {
+            completion(nil)
+            return
+        }
+        
+        let uniqueRecordName = "\(locationId.uuidString)_\(currentUserID.recordName)"
+        let recordID = CKRecord.ID(recordName: uniqueRecordName, zoneID: CKRecordZone.default().zoneID)
+        
+        print("🔍 [CloudKit] 檢查是否已有評論: \(uniqueRecordName)")
+        
+        publicDB.fetch(withRecordID: recordID) { record, error in
+            DispatchQueue.main.async {
+                if let record = record {
+                    // 找到現有評論，解析並回傳
+                    print("✅ [CloudKit] 找到現有評論")
+                    
+                    guard let locationIdString = record["locationId"] as? String,
+                          let locationUUID = UUID(uuidString: locationIdString),
+                          let typeString = record["type"] as? String,
+                          let type = LocationReport.ReportType(rawValue: typeString),
+                          let rating = record["rating"] as? Int,
+                          let creationDate = record.creationDate else {
+                        completion(nil)
+                        return
+                    }
+                    
+                    let creatorID = record.creatorUserRecordID?.recordName ?? "Unknown"
+                    let nickname = record["userNickname"] as? String ?? "匿名"
+                    let content = record["content"] as? String
+                    let tags = record["tags"] as? [String] ?? []
+                    
+                    var ratingDetails: [String: Int] = [:]
+                    if let jsonString = record["ratingDetails"] as? String,
+                       let jsonData = jsonString.data(using: .utf8),
+                       let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Int] {
+                        ratingDetails = dict
+                    }
+                    
+                    var gender: UserGender? = nil
+                    if let genderRawValue = record["userGender"] as? Int,
+                       let userGender = UserGender(rawValue: genderRawValue) {
+                        gender = userGender
+                    }
+                    
+                    let existingReport = LocationReport(
+                        id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
+                        locationId: locationUUID,
+                        type: type,
+                        rating: rating,
+                        content: content,
+                        time: creationDate,
+                        userNickname: nickname,
+                        userId: creatorID,
+                        tags: tags,
+                        ratingDetails: ratingDetails,
+                        userGender: gender
+                    )
+                    
+                    completion(existingReport)
+                } else {
+                    // 沒有現有評論
+                    print("ℹ️ [CloudKit] 沒有現有評論（可以新增）")
+                    completion(nil)
                 }
             }
         }
