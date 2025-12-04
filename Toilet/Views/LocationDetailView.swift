@@ -452,7 +452,7 @@ struct LocationDetailView: View {
                                         }
                                     }
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 0)
+                                    .padding(.vertical, 5)
                                     .background(Color.blue)
                                     .clipShape(Capsule())
                                 }
@@ -805,7 +805,17 @@ struct LocationDetailView: View {
             }
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
-            .presentationBackground(Color.white.opacity(0.5))
+            .presentationBackground {
+                if #available(iOS 26.0, *) {
+                    Color.white.opacity(0.5)
+                } else {
+                    ZStack {
+                        Color.clear
+                            .background(.ultraThinMaterial)
+                        Color.white.opacity(0.8)
+                    }
+                }
+            }
         }
     }
     
@@ -1558,11 +1568,7 @@ struct ReviewInputView: View {
                     } else {
                         submitButton
                             .fontWeight(.bold)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(starRating == 0 ? Color.gray : Color.blue)
-                            .foregroundColor(.white)
-                            .clipShape(Capsule())
+                            .foregroundColor(starRating == 0 ? .gray : .blue)
                             .disabled(starRating == 0)
                     }
                 }

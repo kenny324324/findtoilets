@@ -389,7 +389,17 @@ struct HomeSheetView: View {
             .presentationDragIndicator(.hidden)
             .presentationCompactAdaptation(.sheet)
             .presentationContentInteraction(.scrolls)
-            .presentationBackground(Color.white.opacity(0.2))
+            .presentationBackground {
+                if #available(iOS 26.0, *) {
+                    Color.white.opacity(0.2)
+                } else {
+                    ZStack {
+                        Color.clear
+                            .background(.ultraThinMaterial)
+                        Color.white.opacity(0.8)
+                    }
+                }
+            }
             .interactiveDismissDisabled()
         }
         // 設定 Sheet
@@ -406,7 +416,17 @@ struct HomeSheetView: View {
                 .presentationDragIndicator(.hidden)
                 .presentationCompactAdaptation(.sheet)
                 .presentationContentInteraction(.scrolls)
-                .presentationBackground(Color.white.opacity(0.2))
+                .presentationBackground {
+                    if #available(iOS 26.0, *) {
+                        Color.white.opacity(0.2)
+                    } else {
+                        ZStack {
+                            Color.clear
+                                .background(.ultraThinMaterial)
+                            Color.white.opacity(0.8)
+                        }
+                    }
+                }
                 .onAppear {
                     toiletDetailDetent = .medium
                 }
@@ -419,7 +439,17 @@ struct HomeSheetView: View {
                 .presentationDragIndicator(.hidden)
                 .presentationCompactAdaptation(.sheet)
                 .presentationContentInteraction(.scrolls)
-                .presentationBackground(Color.white.opacity(0.2))
+                .presentationBackground {
+                    if #available(iOS 26.0, *) {
+                        Color.white.opacity(0.2)
+                    } else {
+                        ZStack {
+                            Color.clear
+                                .background(.ultraThinMaterial)
+                            Color.white.opacity(0.8)
+                        }
+                    }
+                }
                 .interactiveDismissDisabled()
                 .onAppear {
                     locationDetailDetent = .medium
@@ -954,7 +984,17 @@ struct NearbyListView: View {
             NearbyFilterSheet(filterOptions: $filterOptions)
                 .presentationDetents([.height(460)])
                 .presentationDragIndicator(.hidden)
-                .presentationBackground(Color.white.opacity(0.5))
+                .presentationBackground {
+                    if #available(iOS 26.0, *) {
+                        Color.white.opacity(0.5)
+                    } else {
+                        ZStack {
+                            Color.clear
+                                .background(.ultraThinMaterial)
+                            Color.white.opacity(0.8)
+                        }
+                    }
+                }
         }
         .sheet(item: $selectedToiletForDetail) { toilet in
             ToiletDetailView(toilet: toilet, toiletDetailDetent: $toiletDetailDetent)
@@ -963,7 +1003,17 @@ struct NearbyListView: View {
                 .presentationDragIndicator(.hidden)
                 .presentationCompactAdaptation(.sheet)
                 .presentationContentInteraction(.scrolls)
-                .presentationBackground(Color.white.opacity(0.2))
+                .presentationBackground {
+                    if #available(iOS 26.0, *) {
+                        Color.white.opacity(0.2)
+                    } else {
+                        ZStack {
+                            Color.clear
+                                .background(.ultraThinMaterial)
+                            Color.white.opacity(0.8)
+                        }
+                    }
+                }
                 .onAppear {
                     // 確保打開時是 medium 高度
                     toiletDetailDetent = .medium
@@ -976,7 +1026,17 @@ struct NearbyListView: View {
                 .presentationDragIndicator(.hidden)
                 .presentationCompactAdaptation(.sheet)
                 .presentationContentInteraction(.scrolls)
-                .presentationBackground(Color.white.opacity(0.2))
+                .presentationBackground {
+                    if #available(iOS 26.0, *) {
+                        Color.white.opacity(0.2)
+                    } else {
+                        ZStack {
+                            Color.clear
+                                .background(.ultraThinMaterial)
+                            Color.white.opacity(0.8)
+                        }
+                    }
+                }
                 .interactiveDismissDisabled()
                 .onAppear {
                     // 確保打開時是 medium 高度
@@ -1308,11 +1368,7 @@ private struct NearbyFilterSheet: View {
                             dismiss()
                         }
                         .fontWeight(.bold)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .clipShape(Capsule())
+                        .foregroundColor(.blue)
                     }
                 }
             }

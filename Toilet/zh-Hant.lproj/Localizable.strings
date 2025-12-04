@@ -26,6 +26,18 @@
 "language_setting" = "語言設定";
 "language_setting_detail" = "更改應用程式的顯示語言";
 "done" = "完成";
+"profile" = "個人檔案";
+"nickname" = "暱稱";
+"not_set" = "未設定";
+"edit" = "修改";
+"gender" = "性別";
+"modify_nickname" = "修改暱稱";
+"enter_nickname" = "輸入您的暱稱";
+"confirm" = "確定";
+"cancel" = "取消";
+"nickname_notice" = "此暱稱會顯示在您的所有評論中";
+"set_nickname_alert" = "請設定暱稱";
+"first_time_nickname_notice" = "第一次留言請設定暱稱，之後可至「設定」頁面修改。";
 
 // MARK: - 廁所類型
 "toilet_type_female" = "女廁所";
@@ -67,7 +79,6 @@
 // MARK: - 地圖功能
 "map_app_selection" = "選擇地圖應用程式";
 "map_selection_description" = "請選擇要使用的地圖應用程式進行導航";
-"cancel" = "取消";
 
 // MARK: - 時間相關
 "minutes" = "%d分鐘";
@@ -120,3 +131,50 @@
 "switch_to_standard_map" = "切換到標準地圖";
 "switch_to_satellite_map" = "切換到衛星地圖";
 "loading_toilet_data" = "載入公廁資料中...";
+
+// MARK: - 評論與回報
+"reviews" = "評論";
+"no_reviews_yet" = "還沒有人評論過，成為第一個吧！";
+"write_review" = "撰寫評論";
+"edit_review" = "修改評論";
+"update" = "更新";
+"submit" = "送出";
+"overall_rating" = "整體評價";
+"cleanliness" = "乾淨度";
+"convenience" = "方便度";
+"crowd_status" = "人潮狀況";
+"report_issue" = "回報問題";
+"comment" = "留言";
+"share_experience" = "分享你的使用經驗";
+"few_people" = "少";
+"many_people" = "多";
+"clean" = "乾淨";
+"convenient" = "方便";
+
+// MARK: - 問題標籤
+"issue_no_paper" = "缺衛生紙";
+"issue_dirty" = "髒亂異味";
+"issue_damaged" = "設備損壞";
+"issue_maintenance" = "維修中";
+"issue_wet_floor" = "地面濕滑";
+"issue_clogged" = "馬桶堵塞";
+"issue_dim_light" = "照明不足";
+"issue_crowded" = "人潮擁擠";
+
+// MARK: - 篩選與搜尋
+"nearby" = "附近";
+"nearby_one_km" = "附近一公里";
+"filter" = "篩選";
+"distance_range" = "距離範圍";
+"star_rating" = "星級";
+"no_limit" = "不限";
+"less_than_meters" = "小於 %d 公尺內";
+"clear" = "清除";
+"apply" = "套用";
+"no_filter_results" = "目前沒有符合條件的結果";
+"clear_filter_conditions" = "清除篩選條件";
+"recently_viewed" = "最近瀏覽";
+"no_recently_viewed" = "沒有最近瀏覽";
+"sort_distance" = "距離最短";
+"sort_rating" = "星級最高";
+"all_reviews" = "所有評論";

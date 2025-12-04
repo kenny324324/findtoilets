@@ -245,7 +245,17 @@ struct ToiletView: View {
                     .presentationDragIndicator(.hidden)
                     .presentationCompactAdaptation(.sheet)
                     .presentationContentInteraction(.scrolls)
-                    .presentationBackground(Color.white.opacity(0.2))
+                    .presentationBackground {
+                        if #available(iOS 26.0, *) {
+                            Color.white.opacity(0.2)
+                        } else {
+                            ZStack {
+                                Color.clear
+                                    .background(.ultraThinMaterial)
+                                Color.white.opacity(0.8)
+                            }
+                        }
+                    }
                     .onAppear {
                         // 確保打開時是 medium 高度
                         toiletDetailDetent = .medium
@@ -258,7 +268,17 @@ struct ToiletView: View {
                     .presentationDragIndicator(.hidden)
                     .presentationCompactAdaptation(.sheet)
                     .presentationContentInteraction(.scrolls)
-                    .presentationBackground(Color.white.opacity(0.2))
+                    .presentationBackground {
+                        if #available(iOS 26.0, *) {
+                            Color.white.opacity(0.2)
+                        } else {
+                            ZStack {
+                                Color.clear
+                                    .background(.ultraThinMaterial)
+                                Color.white.opacity(0.8)
+                            }
+                        }
+                    }
                     .interactiveDismissDisabled()
                     .onAppear {
                         // 確保打開時是 medium 高度
@@ -1044,7 +1064,7 @@ struct SettingsView: View {
                     
                     // 1. 個人檔案設定 (新的膠囊風格)
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("個人檔案")
+                        Text(LocalizedStrings.profile.localized)
                             .font(.headlineRounded())
                             .foregroundColor(.primary)
                             .padding(.horizontal, 4)
@@ -1062,7 +1082,7 @@ struct SettingsView: View {
                                         .frame(width: 32)
                                     
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("暱稱")
+                                        Text(LocalizedStrings.nickname.localized)
                                             .font(.bodyRounded(.semibold))
                                             .foregroundColor(.primary)
                                     }
@@ -1070,12 +1090,12 @@ struct SettingsView: View {
                                     Spacer()
                                     
                                     HStack(spacing: 8) {
-                                        Text(tempNickname.isEmpty ? "未設定" : tempNickname)
+                                        Text(tempNickname.isEmpty ? LocalizedStrings.notSet.localized : tempNickname)
                                             .font(.bodyRounded())
                                             .foregroundColor(tempNickname.isEmpty ? .secondary : .primary)
                                             .lineLimit(1)
                                         
-                                        Text("修改")
+                                        Text(LocalizedStrings.edit.localized)
                                             .font(.captionRounded(.semibold))
                                             .foregroundColor(.white)
                                             .padding(.horizontal, 12)
@@ -1114,7 +1134,7 @@ struct SettingsView: View {
                                         .frame(width: 32)
                                     
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("性別")
+                                        Text(LocalizedStrings.gender.localized)
                                             .font(.bodyRounded(.semibold))
                                             .foregroundColor(.primary)
                                     }
@@ -1205,32 +1225,38 @@ struct SettingsView: View {
                         Button(action: { dismiss() }) {
                             Text(LocalizedStrings.done.localized)
                                 .fontWeight(.bold)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .clipShape(Capsule())
+                                .foregroundColor(.blue)
                         }
                     }
                 }
             }
-            .alert("修改暱稱", isPresented: $showingNicknameAlert) {
-                TextField("輸入您的暱稱", text: $editingNickname)
-                Button("確定") {
+            .alert(LocalizedStrings.modifyNickname.localized, isPresented: $showingNicknameAlert) {
+                TextField(LocalizedStrings.enterNickname.localized, text: $editingNickname)
+                Button(LocalizedStrings.confirm.localized) {
                     let trimmed = editingNickname.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmed.isEmpty {
                         tempNickname = trimmed
                         saveProfile()
                     }
                 }
-                Button("取消", role: .cancel) { }
+                Button(LocalizedStrings.cancel.localized, role: .cancel) { }
             } message: {
-                Text("此暱稱會顯示在您的所有評論中")
+                Text(LocalizedStrings.nicknameNotice.localized)
             }
         }
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.white.opacity(0.95)) // 提高不透明度，因為內容變多了
+        .presentationBackground {
+            if #available(iOS 26.0, *) {
+                Color.white.opacity(0.95)
+            } else {
+                ZStack {
+                    Color.clear
+                        .background(.ultraThinMaterial)
+                    Color.white.opacity(0.8)
+                }
+            }
+        }
         .onAppear {
             loadUserProfile()
         }
@@ -1361,3 +1387,4 @@ struct CustomLoadingView: View {
         }
     }
 }
+

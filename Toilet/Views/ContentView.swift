@@ -141,7 +141,17 @@ struct ContentView: View {
                     .presentationDragIndicator(.hidden)
                     .presentationCompactAdaptation(.sheet)
                     .presentationContentInteraction(.scrolls)
-                    .presentationBackground(Color.white.opacity(0.2))
+                    .presentationBackground {
+                        if #available(iOS 26.0, *) {
+                            Color.white.opacity(0.2)
+                        } else {
+                            ZStack {
+                                Color.clear
+                                    .background(.ultraThinMaterial)
+                                Color.white.opacity(0.8)
+                            }
+                        }
+                    }
                     .interactiveDismissDisabled()
                 }
                 }
