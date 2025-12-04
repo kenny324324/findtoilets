@@ -229,33 +229,6 @@ class CloudKitManager: ObservableObject {
         let uniqueRecordName = "\(report.locationId.uuidString)_\(currentUserID.recordName)"
         let recordID = CKRecord.ID(recordName: uniqueRecordName, zoneID: CKRecordZone.default().zoneID)
         
-        // 將 LocationReport 轉換為 CKRecord
-        let record = CKRecord(recordType: "Review", recordID: recordID)
-        
-        // 儲存欄位
-        record["locationId"] = report.locationId.uuidString
-        record["type"] = report.type.rawValue
-        record["rating"] = report.rating
-        record["content"] = report.content ?? ""
-        
-        // 注意：不再強制依賴 record["userNickname"]，但為了相容性可以存個 snapshot，
-        // 或者存空字串，完全依賴 UserProfile
-        // 這裡我們存入當下的暱稱作為備份，但顯示時優先使用 Profile
-        record["userNickname"] = report.userNickname
-        
-        // 新增：儲存標籤與評分詳情
-        record["tags"] = report.tags as CKRecordValue
-        // CloudKit 不直接支援 Dictionary，我們轉成 JSON String 存
-        if let jsonData = try? JSONSerialization.data(withJSONObject: report.ratingDetails, options: []),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            record["ratingDetails"] = jsonString
-        }
-        
-        // 新增：儲存性別（用於該則評論的頭像顏色）
-        if let gender = report.userGender {
-            record["userGender"] = gender.rawValue as CKRecordValue
-        }
-        
         print("📤 [CloudKit] 準備上傳評論...")
         print("   - Record Name (唯一): \(uniqueRecordName)")
         print("   - Location ID: \(report.locationId.uuidString)")
@@ -263,14 +236,64 @@ class CloudKitManager: ObservableObject {
         print("   - Tags: \(report.tags)")
         print("   - Gender: \(report.userGender?.title ?? "未設定")")
         
-        publicDB.save(record) { savedRecord, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    print("\n❌ [CloudKit] 上傳評論失敗: \(error.localizedDescription)")
-                    completion(.failure(error))
-                } else {
-                    print("\n✅ [CloudKit] 上傳評論成功！")
-                    completion(.success(true))
+        // 先嘗試 fetch 現有的 record，如果存在就更新，不存在就創建新的
+        publicDB.fetch(withRecordID: recordID) { [weak self] existingRecord, fetchError in
+            guard let self = self else { return }
+            
+            let record: CKRecord
+            
+            if let existingRecord = existingRecord {
+                // 找到現有 record，更新它
+                print("🔄 [CloudKit] 找到現有評論，執行更新...")
+                record = existingRecord
+            } else {
+                // 沒有現有 record，創建新的
+                print("➕ [CloudKit] 沒有現有評論，創建新評論...")
+                record = CKRecord(recordType: "Review", recordID: recordID)
+            }
+            
+            // 更新所有欄位
+            record["locationId"] = report.locationId.uuidString
+            record["type"] = report.type.rawValue
+            record["rating"] = report.rating
+            record["content"] = report.content ?? ""
+            record["userNickname"] = report.userNickname
+            
+            // 儲存標籤
+            record["tags"] = report.tags as CKRecordValue
+            
+            // 儲存評分詳情（轉成 JSON String）
+            if let jsonData = try? JSONSerialization.data(withJSONObject: report.ratingDetails, options: []),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                record["ratingDetails"] = jsonString
+            }
+            
+            // 儲存性別
+            if let gender = report.userGender {
+                record["userGender"] = gender.rawValue as CKRecordValue
+            }
+            
+            // 儲存地點資訊
+            if let locationName = report.locationName {
+                record["locationName"] = locationName as CKRecordValue
+            }
+            if let latitude = report.latitude {
+                record["latitude"] = latitude as CKRecordValue
+            }
+            if let longitude = report.longitude {
+                record["longitude"] = longitude as CKRecordValue
+            }
+            
+            // 保存 record
+            self.publicDB.save(record) { savedRecord, saveError in
+                DispatchQueue.main.async {
+                    if let saveError = saveError {
+                        print("\n❌ [CloudKit] 上傳評論失敗: \(saveError.localizedDescription)")
+                        completion(.failure(saveError))
+                    } else {
+                        print("\n✅ [CloudKit] 上傳評論成功！")
+                        completion(.success(true))
+                    }
                 }
             }
         }
@@ -322,6 +345,10 @@ class CloudKitManager: ObservableObject {
                         gender = userGender
                     }
                     
+                    let locationName = record["locationName"] as? String
+                    let latitude = record["latitude"] as? Double
+                    let longitude = record["longitude"] as? Double
+                    
                     let existingReport = LocationReport(
                         id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
                         locationId: locationUUID,
@@ -333,7 +360,10 @@ class CloudKitManager: ObservableObject {
                         userId: creatorID,
                         tags: tags,
                         ratingDetails: ratingDetails,
-                        userGender: gender
+                        userGender: gender,
+                        locationName: locationName,
+                        latitude: latitude,
+                        longitude: longitude
                     )
                     
                     completion(existingReport)
@@ -407,6 +437,10 @@ class CloudKitManager: ObservableObject {
                     gender = userGender
                 }
                 
+                let locationName = record["locationName"] as? String
+                let latitude = record["latitude"] as? Double
+                let longitude = record["longitude"] as? Double
+                
                 return LocationReport(
                     id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
                     locationId: locationUUID,
@@ -418,7 +452,10 @@ class CloudKitManager: ObservableObject {
                     userId: creatorID,
                     tags: tags,
                     ratingDetails: ratingDetails,
-                    userGender: gender
+                    userGender: gender,
+                    locationName: locationName,
+                    latitude: latitude,
+                    longitude: longitude
                 )
             }
             

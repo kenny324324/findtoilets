@@ -24,7 +24,12 @@ struct LocationReport: Identifiable, Codable {
     var userNickname: String // 匿名暱稱 (現在可以變動)
     var userGender: UserGender? // 使用者性別 (從 Profile 撈取)
     
-    init(locationId: UUID, type: ReportType, rating: Int, content: String? = nil, userNickname: String, tags: [String] = [], ratingDetails: [String: Int] = [:]) {
+    // 新增：地點資訊備份
+    var locationName: String?
+    var latitude: Double?
+    var longitude: Double?
+    
+    init(locationId: UUID, type: ReportType, rating: Int, content: String? = nil, userNickname: String, tags: [String] = [], ratingDetails: [String: Int] = [:], locationName: String? = nil, latitude: Double? = nil, longitude: Double? = nil) {
         self.id = UUID()
         self.locationId = locationId
         self.type = type
@@ -36,10 +41,13 @@ struct LocationReport: Identifiable, Codable {
         self.userId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
         self.userNickname = userNickname
         self.userGender = nil
+        self.locationName = locationName
+        self.latitude = latitude
+        self.longitude = longitude
     }
     
     // 完整初始化
-    init(id: UUID = UUID(), locationId: UUID = UUID(), type: ReportType, rating: Int, content: String? = nil, time: Date, userNickname: String, userId: String = "dummy_user", tags: [String] = [], ratingDetails: [String: Int] = [:], userGender: UserGender? = nil) {
+    init(id: UUID = UUID(), locationId: UUID = UUID(), type: ReportType, rating: Int, content: String? = nil, time: Date, userNickname: String, userId: String = "dummy_user", tags: [String] = [], ratingDetails: [String: Int] = [:], userGender: UserGender? = nil, locationName: String? = nil, latitude: Double? = nil, longitude: Double? = nil) {
         self.id = id
         self.locationId = locationId
         self.type = type
@@ -51,6 +59,9 @@ struct LocationReport: Identifiable, Codable {
         self.userId = userId
         self.userNickname = userNickname
         self.userGender = userGender
+        self.locationName = locationName
+        self.latitude = latitude
+        self.longitude = longitude
     }
     
     enum ReportType: String, Codable, CaseIterable {
@@ -149,8 +160,20 @@ class ReviewManager: ObservableObject {
         }
         
         // 移除舊評論（如果有）
-        if let existingIndex = reviews[report.locationId]?.firstIndex(where: { $0.userId == report.userId }) {
+        // 關鍵修正：如果有 existingReview，直接移除它（因為這是從 CloudKit 確認的使用者評論）
+        if let existingReview = existingReview,
+           let existingIndex = reviews[report.locationId]?.firstIndex(where: { $0.id == existingReview.id }) {
+            print("🔄 [ReviewManager] 找到現有評論，移除舊的: \(existingReview.id)")
             reviews[report.locationId]?.remove(at: existingIndex)
+        } else {
+            // 備用方案：如果沒有 existingReview，用 CloudKit User ID 比對
+            if let currentUserID = CloudKitManager.shared.currentUserID?.recordName,
+               let existingIndex = reviews[report.locationId]?.firstIndex(where: { $0.userId == currentUserID }) {
+                print("🔄 [ReviewManager] 用 UserID 找到現有評論，移除舊的")
+                reviews[report.locationId]?.remove(at: existingIndex)
+            } else {
+                print("➕ [ReviewManager] 沒有找到現有評論，這是新增")
+            }
         }
         
         // 插入新評論在最前面
@@ -163,9 +186,9 @@ class ReviewManager: ObservableObject {
         CloudKitManager.shared.saveReview(report: report) { result in
             switch result {
             case .success:
-                print("評論同步至雲端成功")
+                print("✅ [ReviewManager] 評論同步至雲端成功")
             case .failure(let error):
-                print("評論同步失敗: \(error.localizedDescription)")
+                print("❌ [ReviewManager] 評論同步失敗: \(error.localizedDescription)")
                 // 這裡可以做失敗處理，例如顯示驚嘆號，但為了體驗先不打斷使用者
             }
         }
@@ -787,17 +810,24 @@ struct LocationDetailView: View {
                 }
                 
                 // 新增評論
+                // 關鍵修正：使用 CloudKit User ID 而非設備 ID
+                let userId = CloudKitManager.shared.currentUserID?.recordName ?? "Unknown"
                 var newReview = LocationReport(
+                    id: UUID(),
                     locationId: location.id,
                     type: reportType,
                     rating: rating, // 使用使用者點的星星數
                     content: content.isEmpty ? nil : content,
+                    time: Date(),
                     userNickname: nickname,
+                    userId: userId, // 使用 CloudKit User ID
                     tags: tags,
-                    ratingDetails: ratingDetails
+                    ratingDetails: ratingDetails,
+                    userGender: gender, // 直接傳入性別
+                    locationName: location.name,
+                    latitude: location.latitude,
+                    longitude: location.longitude
                 )
-                // 本地顯示時帶上性別
-                newReview.userGender = gender
                 
                 withAnimation {
                     reviewManager.addReview(newReview)
