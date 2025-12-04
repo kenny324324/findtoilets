@@ -253,6 +253,7 @@ class CloudKitManager: ObservableObject {
             }
             
             // 更新所有欄位
+            record["reviewId"] = report.id.uuidString // 儲存評論的真實 ID
             record["locationId"] = report.locationId.uuidString
             record["type"] = report.type.rawValue
             record["rating"] = report.rating
@@ -349,8 +350,17 @@ class CloudKitManager: ObservableObject {
                     let latitude = record["latitude"] as? Double
                     let longitude = record["longitude"] as? Double
                     
+                    // 讀取儲存的 reviewId，如果沒有則生成新的（相容舊資料）
+                    let reviewId: UUID
+                    if let reviewIdString = record["reviewId"] as? String,
+                       let parsedId = UUID(uuidString: reviewIdString) {
+                        reviewId = parsedId
+                    } else {
+                        reviewId = UUID()
+                    }
+                    
                     let existingReport = LocationReport(
-                        id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
+                        id: reviewId,
                         locationId: locationUUID,
                         type: type,
                         rating: rating,
@@ -441,8 +451,17 @@ class CloudKitManager: ObservableObject {
                 let latitude = record["latitude"] as? Double
                 let longitude = record["longitude"] as? Double
                 
+                // 讀取儲存的 reviewId，如果沒有則生成新的（相容舊資料）
+                let reviewId: UUID
+                if let reviewIdString = record["reviewId"] as? String,
+                   let parsedId = UUID(uuidString: reviewIdString) {
+                    reviewId = parsedId
+                } else {
+                    reviewId = UUID()
+                }
+                
                 return LocationReport(
-                    id: UUID(uuidString: record.recordID.recordName) ?? UUID(),
+                    id: reviewId,
                     locationId: locationUUID,
                     type: type,
                     rating: rating,
