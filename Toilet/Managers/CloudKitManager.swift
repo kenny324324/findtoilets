@@ -356,7 +356,8 @@ class CloudKitManager: ObservableObject {
                        let parsedId = UUID(uuidString: reviewIdString) {
                         reviewId = parsedId
                     } else {
-                        reviewId = UUID()
+                        // 使用 recordName 生成穩定的 UUID，確保不同地方讀取時 ID 一致
+                        reviewId = ToiletLocation.generateStableUUID(from: record.recordID.recordName)
                     }
                     
                     let existingReport = LocationReport(
@@ -457,7 +458,8 @@ class CloudKitManager: ObservableObject {
                    let parsedId = UUID(uuidString: reviewIdString) {
                     reviewId = parsedId
                 } else {
-                    reviewId = UUID()
+                    // 使用 recordName 生成穩定的 UUID，確保不同地方讀取時 ID 一致
+                    reviewId = ToiletLocation.generateStableUUID(from: record.recordID.recordName)
                 }
                 
                 return LocationReport(

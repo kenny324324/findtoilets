@@ -46,7 +46,7 @@ struct ToiletLocation: Identifiable, Codable, Equatable {
         self.id = ToiletLocation.generateStableUUID(from: uniqueString)
     }
     
-    private static func generateStableUUID(from string: String) -> UUID {
+    static func generateStableUUID(from string: String) -> UUID {
         let hash = string.hash
         // 使用雜湊值來構建 UUID (這是一個簡單的實作，確保同一字串產生同一 UUID)
         // 注意：這依賴於 Swift 的 hash 實作，跨平台或版本可能不穩定，但單機重啟通常沒問題
