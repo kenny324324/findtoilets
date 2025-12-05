@@ -11,6 +11,9 @@ import GoogleMobileAds
 
 @main
 struct ToiletApp: App {
+    // 連結 AppDelegate
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    
     // 建立 PremiumManager 實例
     @StateObject private var premiumManager = PremiumManager()
     @StateObject private var purchaseManager = PurchaseManager()
