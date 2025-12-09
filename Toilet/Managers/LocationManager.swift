@@ -18,6 +18,10 @@ class LocationManager: NSObject, ObservableObject {
         // 設定距離過濾器，減少不必要的更新
         locationManager.distanceFilter = 10
         authorizationStatus = locationManager.authorizationStatus
+        
+        // 載入最後已知位置
+        loadLastKnownLocation()
+        
         print("LocationManager 初始化，權限狀態：\(authorizationStatus.rawValue)")
         
         // 如果權限未確定，立即請求
@@ -27,6 +31,16 @@ class LocationManager: NSObject, ObservableObject {
         }
     }
     
+    private func loadLastKnownLocation() {
+        let lat = UserDefaults.standard.double(forKey: "LastLat")
+        let lon = UserDefaults.standard.double(forKey: "LastLon")
+        // 檢查座標是否有效（非 0.0）
+        if lat != 0.0 && lon != 0.0 {
+            self.location = CLLocation(latitude: lat, longitude: lon)
+            print("已載入最後已知位置：\(lat), \(lon)")
+        }
+    }
+
     func requestLocationPermission() {
         print("請求位置權限...")
         print("當前權限狀態：\(locationManager.authorizationStatus.rawValue)")
@@ -136,6 +150,10 @@ extension LocationManager: CLLocationManagerDelegate {
             self.location = location
             self.isLocating = false
             self.errorMessage = nil
+            
+            // 儲存最後已知位置
+            UserDefaults.standard.set(location.coordinate.latitude, forKey: "LastLat")
+            UserDefaults.standard.set(location.coordinate.longitude, forKey: "LastLon")
             
             // 停止持續定位
             self.locationManager.stopUpdatingLocation()

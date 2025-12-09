@@ -35,8 +35,43 @@ struct ToiletView: View {
     @State private var selectedLocationForDetail: ToiletLocation? = nil // 選中要顯示詳細資訊的地點
     @State private var locationDetailDetent: PresentationDetent = .medium
     
+    // 智慧篩選狀態
+    @State private var selectedFilterTag: String? = nil
+    
+    // 智慧篩選標籤定義
+    private let filterTags: [(name: String, icon: String, keywords: [String])] = [
+        ("車站", "tram.fill", ["車站", "捷運", "MRT", "火車", "高鐵", "客運", "轉運"]),
+        ("百貨公司", "bag.fill", ["百貨", "商場", "購物中心", "MALL"]),
+        ("餐廳", "fork.knife", ["餐廳", "麥當勞", "肯德基", "星巴克", "cafe", "咖啡"]),
+        ("加油站", "fuelpump.fill", ["加油站", "中油"]),
+        ("公園", "tree.fill", ["公園", "Park"]),
+        ("市場", "cart.fill", ["市場", "夜市", "Market"]),
+        ("圖書館", "book.fill", ["圖書館"]),
+        ("運動中心", "figure.run", ["運動中心", "體育館", "球場"]),
+        ("停車場", "parkingsign", ["停車場"])
+    ]
+    
     // 設定頁
     @State private var settingsTapCount = 0 // 可保留計數器做其他 Easter egg，如不需要可移除
+    
+    // 經過篩選的附近地點列表
+    var filteredNearbyLocations: [(ToiletLocation, Int)] {
+        guard let tag = selectedFilterTag, 
+              let filterInfo = filterTags.first(where: { $0.name == tag }) else {
+            return nearbyLocationsWithDistance
+        }
+        
+        let keywords = filterInfo.keywords
+        
+        return nearbyLocationsWithDistance.filter { (location, _) in
+            let name = location.name.lowercased()
+            let type = location.placeType.lowercased()
+            // 同時檢查名稱和場所類型
+            return keywords.contains { keyword in 
+                name.contains(keyword.lowercased()) || type.contains(keyword.lowercased())
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -1387,6 +1422,9 @@ struct CustomLoadingView: View {
         }
     }
 }
+
+
+
 
 
 

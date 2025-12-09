@@ -12,6 +12,8 @@ import CoreLocation
 struct ContentView: View {
     // 接收 PremiumManager
     @EnvironmentObject var premiumManager: PremiumManager
+    // 接收 ToiletDataManager (改為 EnvironmentObject)
+    @EnvironmentObject var toiletDataManager: ToiletDataManager
     
     @State private var sheetPresented: Bool = false // 預設為 false，讓 sheet 延後彈出
     @State private var selectedDetent: PresentationDetent = .medium // 預設 detent 尺寸
@@ -27,7 +29,7 @@ struct ContentView: View {
     @StateObject private var locationManager = LocationManager()
     @State private var mapToilets: [ToiletInfo] = [] // 要在地圖上顯示的公廁
     @State private var mapLocations: [ToiletLocation] = [] // 要在地圖上顯示的地點
-    @StateObject private var toiletDataManager = ToiletDataManager() // 公廁資料管理器
+    // @StateObject private var toiletDataManager = ToiletDataManager() // 移除 StateObject，改用 EnvironmentObject
     @State private var regionUpdateTimer: Timer? = nil // 防抖動計時器
     @State private var shouldUpdateMapRegion: Bool = true // 控制是否應該更新地圖區域
     @State private var hasAutoLocated: Bool = false // 控制是否已經自動定位過
@@ -158,43 +160,35 @@ struct ContentView: View {
                 .zIndex(1)
             
             // LoadingView 覆蓋在主畫面上方
-            if isFirstLaunch || !animationCompleted || toiletDataManager.isLoading {
-                LoadingView()
+            if isFirstLaunch || !animationCompleted {
+                LoadingView(
+                    isDataLoaded: !toiletDataManager.isLoading && !toiletDataManager.toilets.isEmpty,
+                    onAnimationComplete: {
+                        // 只有當 LoadingView 說「我跑完了」才移除
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            animationCompleted = true
+                            isFirstLaunch = false
+                        }
+                        
+                        // 隨後彈出 Sheet
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.spring()) {
+                                sheetPresented = true
+                            }
+                        }
+                    }
+                )
                     .transition(.opacity)
                     .zIndex(10) // 確保在最上層
             }
         }
         .onAppear {
-            // 啟動時開始載入資料
+            // 啟動時開始載入資料（如果尚未載入）
             toiletDataManager.loadToiletData()
             
-            // 確保 LoadingView 動畫完整播放（0.1秒延遲 + 2.2秒動畫 + 0.7秒停留 = 3.0秒）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
-                isFirstLaunch = false
-                animationCompleted = true
-            }
+            // 讓 LoadingView 內部來控制完成時機，這裡不做額外計時器
         }
-        .onChange(of: toiletDataManager.isLoading) { isLoading in
-            // 當載入完成且動畫也完成後，才彈出 Sheet
-            if !isLoading && animationCompleted && !isFirstLaunch {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation(.spring()) {
-                        sheetPresented = true
-                    }
-                }
-            }
-        }
-        .onChange(of: animationCompleted) { completed in
-            // 當動畫完成且數據也載入完成後，才彈出 Sheet
-            if completed && !toiletDataManager.isLoading {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation(.spring()) {
-                        sheetPresented = true
-                    }
-                }
-            }
-        }
-        .animation(.easeInOut(duration: 0.8), value: toiletDataManager.isLoading)
+        // 移除 onChange，因為由 LoadingView 的 callback 來控制
         .animation(.easeInOut(duration: 0.8), value: isFirstLaunch)
         .animation(.easeInOut(duration: 0.8), value: animationCompleted)
     }

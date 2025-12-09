@@ -9,6 +9,9 @@ import SwiftUI
 import MapKit
 
 struct LoadingView: View {
+    var isDataLoaded: Bool // 外部通知：資料好了沒
+    var onAnimationComplete: (() -> Void)? // 內部通知：動畫跑完了
+    
     @State private var loadingProgress: CGFloat = 0.0
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 25.0330, longitude: 121.5654),
@@ -61,12 +64,35 @@ struct LoadingView: View {
             }
         }
         .onAppear {
-            // 載入動畫（稍微延遲開始，確保完整填充）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeInOut(duration: 2.2)) {
-                    loadingProgress = 1.0
+            // 階段一：模擬載入
+            // 先在 2.0 秒內跑到 80%，讓使用者感覺有在動，但留一點空間給最後衝刺
+            // 如果資料已經好了，這個動畫會立刻被下面的 onChange 覆蓋
+            if !isDataLoaded {
+                withAnimation(.easeInOut(duration: 2.0)) {
+                    loadingProgress = 0.8
                 }
+            } else {
+                // 如果一進來資料就已經好了（秒開），直接填滿
+                finishAnimation()
             }
+        }
+        .onChange(of: isDataLoaded) { loaded in
+            if loaded {
+                finishAnimation()
+            }
+        }
+    }
+    
+    private func finishAnimation() {
+        // 階段二：資料好了，加速衝刺！
+        // 無論目前在哪，都在 0.5 秒內填滿剩下的部分
+        withAnimation(.easeOut(duration: 0.5)) {
+            loadingProgress = 1.0
+        }
+        
+        // 等待動畫跑完後，通知外部
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            onAnimationComplete?()
         }
     }
 }
@@ -100,6 +126,6 @@ extension Color {
 }
 
 #Preview {
-    LoadingView()
+    LoadingView(isDataLoaded: false, onAnimationComplete: {})
 }
 

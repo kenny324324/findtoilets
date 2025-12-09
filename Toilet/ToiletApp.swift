@@ -17,6 +17,8 @@ struct ToiletApp: App {
     // 建立 PremiumManager 實例
     @StateObject private var premiumManager = PremiumManager()
     @StateObject private var purchaseManager = PurchaseManager()
+    // 建立 DataManager 實例，在 App 層級就開始
+    @StateObject private var toiletDataManager = ToiletDataManager()
     
     init() {
         // 初始化 Google Mobile Ads SDK
@@ -44,7 +46,11 @@ struct ToiletApp: App {
             ContentView()
                 .environmentObject(premiumManager) // 注入到整個 App
                 .environmentObject(purchaseManager)
+                .environmentObject(toiletDataManager) // 注入 DataManager
                 .onAppear {
+                    // 啟動時立即開始載入資料
+                    toiletDataManager.loadToiletData()
+                    
                     // 強制設定為直向
                     UIDevice.current.setValue(UIInterfaceOrientation.portrait.rawValue, forKey: "orientation")
                     // 啟動後同步一次購買狀態

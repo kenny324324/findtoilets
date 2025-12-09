@@ -685,16 +685,48 @@ struct NearbyListView: View {
     @State private var selectedToiletForDetail: ToiletInfo? = nil
     @State private var toiletDetailDetent: PresentationDetent = .medium
     @State private var selectedLocationForDetail: ToiletLocation? = nil
-    @State private var locationDetailDetent: PresentationDetent = .medium
+    @State private var locationDetailDetent: PresentationDetent = .medium // 補上遺漏的變數
+    // 智慧篩選狀態
+    @State private var selectedFilterTag: String? = nil
+    
+    // 智慧篩選標籤定義
+    private let filterTags: [(name: String, icon: String, keywords: [String])] = [
+        ("車站", "tram.fill", ["車站", "捷運", "MRT", "火車", "高鐵", "客運", "轉運"]),
+        ("百貨公司", "bag.fill", ["百貨", "商場", "購物中心", "MALL"]),
+        ("餐廳", "fork.knife", ["餐廳", "麥當勞", "肯德基", "星巴克", "cafe", "咖啡"]),
+        ("加油站", "fuelpump.fill", ["加油站", "中油"]),
+        ("公園", "tree.fill", ["公園", "Park"]),
+        ("市場", "cart.fill", ["市場", "夜市", "Market"]),
+        ("圖書館", "book.fill", ["圖書館"]),
+        ("運動中心", "figure.run", ["運動中心", "體育館", "球場"]),
+        ("停車場", "parkingsign", ["停車場"])
+    ]
     
     private var filteredAndSortedLocations: [(ToiletLocation, Int)] {
-        let filtered = nearbyLocationsWithDistance.filter { locationWithDistance in
+        // 1. 先進行快速篩選（標籤）
+        var filtered = nearbyLocationsWithDistance
+        
+        if let tag = selectedFilterTag, 
+           let filterInfo = filterTags.first(where: { $0.name == tag }) {
+            let keywords = filterInfo.keywords
+            filtered = filtered.filter { (location, _) in
+                let name = location.name.lowercased()
+                let type = location.placeType.lowercased()
+                return keywords.contains { keyword in 
+                    name.contains(keyword.lowercased()) || type.contains(keyword.lowercased())
+                }
+            }
+        }
+        
+        // 2. 再進行進階篩選（距離、星級等）
+        filtered = filtered.filter { locationWithDistance in
             let location = locationWithDistance.0
             let distance = locationWithDistance.1
             let stars = starCount(for: location)
             return filterOptions.matches(location: location, distance: distance, starCount: stars)
         }
         
+        // 3. 最後排序
         switch sortOption {
         case .distance:
             return filtered.sorted { $0.1 < $1.1 }
@@ -709,225 +741,26 @@ struct NearbyListView: View {
     
     var body: some View {
         NavigationStack {
-            GeometryReader { geometry in
-                if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
-                    VStack(spacing: 20) {
-                        Spacer()
-                        Image(systemName: "location.slash")
-                            .font(.customRounded(50))
-                            .foregroundColor(.gray)
-                        Text(LocalizedStrings.locationPermissionRequired.localized)
-                            .font(.headlineRounded())
-                            .padding(.top)
-                        Text(LocalizedStrings.locationPermissionDescription.localized)
-                            .font(.subheadlineRounded())
-                            .foregroundColor(.gray)
-                            .multilineTextAlignment(.center)
-                        
-                        Button(LocalizedStrings.goToSettings.localized) {
-                            if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
-                                UIApplication.shared.open(settingsUrl)
-                            }
-                        }
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                        
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    // 預設顯示附近公廁
-                    if toiletDataManager.isLoading || isCalculating {
-                        VStack {
-                            Spacer()
-                            ProgressView(LocalizedStrings.loadingToilets.localized)
-                                .font(.subheadlineRounded())
-                                .foregroundColor(.gray)
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        if locationManager.isLocating {
-                            VStack {
-                                Spacer()
-                                ProgressView(LocalizedStrings.locating.localized)
-                                    .font(.subheadlineRounded())
-                                    .foregroundColor(.gray)
-                                Spacer()
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else {
-                            if nearbyLocations.isEmpty {
-                                if locationManager.location == nil {
-                                    // 有權限但無位置 -> 顯示定位中並重試
-                                    VStack {
-                                        Spacer()
-                                        ProgressView(LocalizedStrings.locating.localized)
-                                            .font(.subheadlineRounded())
-                                            .foregroundColor(.gray)
-                                        Spacer()
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .onAppear {
-                                        if !locationManager.isLocating {
-                                            locationManager.getCurrentLocation()
-                                        }
-                                    }
-                                } else {
-                                    VStack {
-                                        Spacer()
-                                        Image(systemName: "mappin.slash") // 改用 mappin.slash 或其他
-                                            .font(.customRounded(50))
-                                            .foregroundColor(.gray)
-                                        Text(LocalizedStrings.noToiletsFound.localized) // 改為顯示 "找不到廁所"
-                                            .font(.headlineRounded())
-                                            .padding(.top)
-                                        // 移除 "請按定位按鈕" 這種誤導性文字
-                                        Spacer()
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .onAppear {
-                                        // mapToilets = []
-                                        // mapLocations = []
-                                    }
-                                }
-                            } else {
-                                let results = filteredAndSortedLocations
-                                
-                                if results.isEmpty {
-                                    VStack(spacing: 16) {
-                                        Image(systemName: "line.3.horizontal.decrease.circle")
-                                            .font(.system(size: 40, weight: .semibold))
-                                            .foregroundColor(.gray.opacity(0.7))
-                                        Text(filterOptions.isEmpty ? LocalizedStrings.noToiletsFound.localized : "目前沒有符合條件的結果")
-                                            .font(.headlineRounded())
-                                            .foregroundColor(.gray)
-                                        if !filterOptions.isEmpty {
-                                            Button("清除篩選條件") {
-                                                withAnimation {
-                                                    filterOptions = NearbyFilterOptions()
-                                                }
-                                            }
-                                            .font(.captionRounded(.semibold))
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(Color.gray.opacity(0.15))
-                                            .clipShape(Capsule())
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                } else {
-                                    ScrollView(showsIndicators: false) {
-                                        LazyVStack(spacing: 0) {
-                                            ForEach(Array(results.enumerated()), id: \.element.0.id) { index, locationWithDistance in
-                                                Button(action: {
-                                                    presentLocationDetail(locationWithDistance.0)
-                                                }) {
-                                                    LocationRowView(location: locationWithDistance.0, distance: locationWithDistance.1)
-                                                }
-                                                .buttonStyle(PlainButtonStyle())
-                                                
-                                                // 在第 5 個項目（index == 4）後插入廣告
-                                                if index == 4 && !premiumManager.isPremium {
-                                                    VStack(spacing: 0) {
-                                                        Divider()
-                                                            .padding(.leading, 20)
-                                                        
-                                                        AdMobNativeCard(showBackground: false) // 這裡傳入 showBackground: false
-                                                            .environmentObject(premiumManager)
-                                                            .padding(.horizontal, 20)
-                                                            .padding(.vertical, 16)
-                                                        
-                                                        Divider()
-                                                            .padding(.leading, 20)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    .scrollDisabled(parentDetent == .height(200)) // 最小高度時禁用滾動
-                                    .background(Color.clear)
-                                    .onAppear {
-                                        mapToilets = nearbyLocations.flatMap { $0.allToilets }
-                                        mapLocations = nearbyLocations
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .background(Color.clear)
-            .navigationTitle("附近一公里")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        dismiss()
-                    }) {
-                        Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.gray)
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 0) {
+            mainContentView
+                .navigationTitle("附近一公里")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
                         Button(action: {
-                            showFilterSheet = true
+                            dismiss()
                         }) {
-                            ZStack(alignment: .topTrailing) {
-                                Image(systemName: "line.3.horizontal.decrease")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.primary.opacity(0.7))
-                                    .frame(width: 28, height: 28)
-                                
-                                if filterOptions.activeCount > 0 {
-                                    Text("\(filterOptions.activeCount)")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(4)
-                                        .background(Color.blue)
-                                        .clipShape(Circle())
-                                        .offset(x: 10, y: -6)
-                                }
-                            }
-                        }
-                        .accessibilityLabel(filterOptions.isEmpty ? "篩選" : "篩選 \(filterOptions.activeCount) 個條件")
-                        
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.25))
-                            .frame(width: 1, height: 16)
-                            .padding(.horizontal, 6)
-                        
-                        Menu {
-                            ForEach(NearbySortOption.allCases) { option in
-                                Button(action: {
-                                    sortOption = option
-                                }) {
-                                    HStack {
-                                        Text(option.displayName)
-                                        if option == sortOption {
-                                            Spacer()
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "arrow.up.arrow.down")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.primary.opacity(0.7))
-                                .frame(width: 24, height: 24)
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.gray)
                         }
                     }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        trailingToolbarItems
+                    }
                 }
-            }
         }
+        // 以下是 NavigationStack 的 modifiers
         .onChange(of: locationManager.location) { _ in
             updateNearbyToilets()
         }
@@ -955,30 +788,7 @@ struct NearbyListView: View {
             }
         }
         .onAppear {
-            // 如果已授權
-            if locationManager.authorizationStatus == .authorizedWhenInUse || 
-               locationManager.authorizationStatus == .authorizedAlways {
-                
-                // 如果無位置，主動請求定位
-                if locationManager.location == nil {
-                    locationManager.getCurrentLocation()
-                }
-                
-                // 如果預載入數據為空，且有位置，主動觸發一次計算
-                if preloadedNearbyLocations.isEmpty && locationManager.location != nil {
-                    updateNearbyToilets()
-                }
-            }
-
-            // 先使用預先載入的數據
-            if !preloadedNearbyLocations.isEmpty {
-                nearbyLocations = preloadedNearbyLocations
-                nearbyLocationsWithDistance = preloadedNearbyLocationsWithDistance
-                
-                // 立即更新地圖
-                mapToilets = nearbyLocations.flatMap { $0.allToilets }
-                mapLocations = nearbyLocations
-            }
+            onAppearAction()
         }
         .sheet(isPresented: $showFilterSheet) {
             NearbyFilterSheet(filterOptions: $filterOptions)
@@ -1044,6 +854,390 @@ struct NearbyListView: View {
                     // 記錄到最近瀏覽
                     addToRecentlyViewedInNearbyList(location)
                 }
+        }
+    }
+    
+    // MARK: - Subviews & Helpers
+    
+    @ViewBuilder
+    private var mainContentView: some View {
+                if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
+            permissionDeniedView
+        } else if toiletDataManager.isLoading || isCalculating {
+            loadingView
+        } else if locationManager.isLocating {
+            locatingView
+        } else if nearbyLocations.isEmpty {
+            if locationManager.location == nil {
+                locatingViewWithRetry
+            } else {
+                noToiletsFoundView
+            }
+        } else {
+            nearbyListContent
+        }
+    }
+    
+    private var permissionDeniedView: some View {
+                    VStack(spacing: 20) {
+                        Spacer()
+                        Image(systemName: "location.slash")
+                            .font(.customRounded(50))
+                            .foregroundColor(.gray)
+                        Text(LocalizedStrings.locationPermissionRequired.localized)
+                            .font(.headlineRounded())
+                            .padding(.top)
+                        Text(LocalizedStrings.locationPermissionDescription.localized)
+                            .font(.subheadlineRounded())
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                        
+                        Button(LocalizedStrings.goToSettings.localized) {
+                            if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(settingsUrl)
+                            }
+                        }
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                        
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private var loadingView: some View {
+                        VStack {
+                            Spacer()
+                            ProgressView(LocalizedStrings.loadingToilets.localized)
+                                .font(.subheadlineRounded())
+                                .foregroundColor(.gray)
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private var locatingView: some View {
+                            VStack {
+                                Spacer()
+                                ProgressView(LocalizedStrings.locating.localized)
+                                    .font(.subheadlineRounded())
+                                    .foregroundColor(.gray)
+                                Spacer()
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private var locatingViewWithRetry: some View {
+                                    VStack {
+                                        Spacer()
+                                        ProgressView(LocalizedStrings.locating.localized)
+                                            .font(.subheadlineRounded())
+                                            .foregroundColor(.gray)
+                                        Spacer()
+                                    }
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .onAppear {
+                                        if !locationManager.isLocating {
+                                            locationManager.getCurrentLocation()
+                                        }
+                                    }
+    }
+    
+    private var noToiletsFoundView: some View {
+                                    VStack {
+                                        Spacer()
+            Image(systemName: "mappin.slash")
+                                            .font(.customRounded(50))
+                                            .foregroundColor(.gray)
+            Text(LocalizedStrings.noToiletsFound.localized)
+                                            .font(.headlineRounded())
+                                            .padding(.top)
+                                        Spacer()
+                                    }
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    }
+    
+    private var nearbyListContent: some View {
+                                let results = filteredAndSortedLocations
+                                
+        return ZStack(alignment: .top) {
+                                if results.isEmpty {
+                emptyFilteredResultView
+                    .padding(.top, 60) // 避開上方的篩選列
+            } else {
+                locationListView(results: results)
+            }
+            
+            // 智慧篩選列 - 懸浮在上方
+            filterBar
+        }
+    }
+    
+    private var filterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // "全部" 按鈕
+                if #available(iOS 26.0, *) {
+                    if selectedFilterTag == nil {
+                        Button("全部") {
+                            selectedFilterTag = nil
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .buttonStyle(.glassProminent)
+                        .tint(.blue)
+                    } else {
+                        Button {
+                            selectedFilterTag = nil
+                        } label: {
+                            Text("全部")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.black)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(Color.black.opacity(0.05))
+                    }
+                } else {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedFilterTag = nil
+                        }
+                    }) {
+                        Text("全部")
+                            .font(.system(size: 13, weight: .semibold))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .foregroundColor(selectedFilterTag == nil ? .white : .primary)
+                            .background(
+                                Group {
+                                    if selectedFilterTag == nil {
+                                        Color.blue
+                                    } else {
+                                        ZStack {
+                                            Color.white.opacity(0.2)
+                                            Rectangle().fill(.ultraThinMaterial).opacity(0.5)
+                                        }
+                                    }
+                                }
+                                .clipShape(Capsule())
+                            )
+                    }
+                }
+                
+                // 各類別標籤
+                ForEach(filterTags, id: \.name) { tag in
+                    if #available(iOS 26.0, *) {
+                        if selectedFilterTag == tag.name {
+                            Button(action: {
+                                selectedFilterTag = nil
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: tag.icon)
+                                        .font(.caption)
+                                    Text(tag.name)
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                            }
+                            .buttonStyle(.glassProminent)
+                            .tint(.blue)
+                        } else {
+                            Button {
+                                selectedFilterTag = tag.name
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: tag.icon)
+                                        .font(.caption)
+                                        .foregroundColor(.black)
+                                    Text(tag.name)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(.black)
+                                }
+                            }
+                            .buttonStyle(.glassProminent)
+                            .tint(Color.black.opacity(0.05))
+                        }
+                    } else {
+                        Button(action: {
+                            if selectedFilterTag == tag.name {
+                                selectedFilterTag = nil
+                            } else {
+                                selectedFilterTag = tag.name
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: tag.icon)
+                                    .font(.caption)
+                                Text(tag.name)
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .foregroundColor(selectedFilterTag == tag.name ? .white : .primary)
+                            .background(
+                                Group {
+                                    if selectedFilterTag == tag.name {
+                                        Color.blue
+                                    } else {
+                                        ZStack {
+                                            Color.white.opacity(0.2)
+                                            Rectangle().fill(.ultraThinMaterial).opacity(0.5)
+                                        }
+                                    }
+                                }
+                                .clipShape(Capsule())
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.gray.opacity(0.1), lineWidth: selectedFilterTag == tag.name ? 0 : 1)
+                            )
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+    }
+    
+    private var emptyFilteredResultView: some View {
+                                    VStack(spacing: 16) {
+                                        Image(systemName: "line.3.horizontal.decrease.circle")
+                                            .font(.system(size: 40, weight: .semibold))
+                                            .foregroundColor(.gray.opacity(0.7))
+            Text(filterOptions.isEmpty && selectedFilterTag == nil ? LocalizedStrings.noToiletsFound.localized : "目前沒有符合條件的結果")
+                                            .font(.headlineRounded())
+                                            .foregroundColor(.gray)
+            if !filterOptions.isEmpty || selectedFilterTag != nil {
+                                            Button("清除篩選條件") {
+                                                withAnimation {
+                                                    filterOptions = NearbyFilterOptions()
+                        selectedFilterTag = nil
+                                                }
+                                            }
+                                            .font(.captionRounded(.semibold))
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(Color.gray.opacity(0.15))
+                                            .clipShape(Capsule())
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private func locationListView(results: [(ToiletLocation, Int)]) -> some View {
+                                    ScrollView(showsIndicators: false) {
+                                        LazyVStack(spacing: 0) {
+                // 頂部留白，給懸浮篩選列空間
+                Color.clear.frame(height: 60)
+                
+                                            ForEach(Array(results.enumerated()), id: \.element.0.id) { index, locationWithDistance in
+                                                Button(action: {
+                                                    presentLocationDetail(locationWithDistance.0)
+                                                }) {
+                                                    LocationRowView(location: locationWithDistance.0, distance: locationWithDistance.1)
+                                                }
+                                                .buttonStyle(PlainButtonStyle())
+                                                
+                                                // 在第 5 個項目（index == 4）後插入廣告
+                                                if index == 4 && !premiumManager.isPremium {
+                                                    VStack(spacing: 0) {
+                                                        Divider()
+                                                            .padding(.leading, 20)
+                                                        
+                            AdMobNativeCard(showBackground: false)
+                                                            .environmentObject(premiumManager)
+                                                            .padding(.horizontal, 20)
+                                                            .padding(.vertical, 16)
+                                                        
+                                                        Divider()
+                                                            .padding(.leading, 20)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+        .scrollDisabled(parentDetent == .height(200))
+                                    .background(Color.clear)
+                                    .onAppear {
+                                        mapToilets = nearbyLocations.flatMap { $0.allToilets }
+                                        mapLocations = nearbyLocations
+        }
+    }
+    
+    private var trailingToolbarItems: some View {
+                    HStack(spacing: 0) {
+                        Button(action: {
+                            showFilterSheet = true
+                        }) {
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "line.3.horizontal.decrease")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.primary.opacity(0.7))
+                                    .frame(width: 28, height: 28)
+                                
+                                if filterOptions.activeCount > 0 {
+                                    Text("\(filterOptions.activeCount)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(4)
+                                        .background(Color.blue)
+                                        .clipShape(Circle())
+                                        .offset(x: 10, y: -6)
+                                }
+                            }
+                        }
+                        .accessibilityLabel(filterOptions.isEmpty ? "篩選" : "篩選 \(filterOptions.activeCount) 個條件")
+                        
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.25))
+                            .frame(width: 1, height: 16)
+                            .padding(.horizontal, 6)
+                        
+                        Menu {
+                            ForEach(NearbySortOption.allCases) { option in
+                                Button(action: {
+                                    sortOption = option
+                                }) {
+                                    HStack {
+                                        Text(option.displayName)
+                                        if option == sortOption {
+                                            Spacer()
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.primary.opacity(0.7))
+                                .frame(width: 24, height: 24)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                }
+    
+    private func onAppearAction() {
+            if locationManager.authorizationStatus == .authorizedWhenInUse || 
+               locationManager.authorizationStatus == .authorizedAlways {
+                
+                if locationManager.location == nil {
+                    locationManager.getCurrentLocation()
+                }
+                
+                if preloadedNearbyLocations.isEmpty && locationManager.location != nil {
+                    updateNearbyToilets()
+                }
+            }
+
+            if !preloadedNearbyLocations.isEmpty {
+                nearbyLocations = preloadedNearbyLocations
+                nearbyLocationsWithDistance = preloadedNearbyLocationsWithDistance
+                
+                mapToilets = nearbyLocations.flatMap { $0.allToilets }
+                mapLocations = nearbyLocations
         }
     }
     

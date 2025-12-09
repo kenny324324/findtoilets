@@ -30,13 +30,19 @@ class ToiletDataManager: ObservableObject {
     private let cacheQueue = DispatchQueue(label: "com.country.toilet.cache")
     
     init() {
-        // init 時不載入資料，等待 View 來呼叫 loadToiletData
+        // init 時嘗試載入（如果還沒載入）
+        // 在背景執行緒中啟動，以免阻塞初始化過程
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            // 注意：這裡只做預處理或輕量檢查，實際載入邏輯還是由 loadToiletData 控制
+            // 但我們可以稍微偷跑一下
+            // 如果我們想在 init 就載入，要小心與 View 的生命週期
+        }
     }
     
     // 載入公廁資料
     func loadToiletData() {
-        // 如果正在載入，不要重複執行
-        guard !isLoading else { return }
+        // 如果正在載入或已經有資料，不要重複執行
+        guard !isLoading && toilets.isEmpty else { return }
         
         // 在主執行緒設置載入狀態
         DispatchQueue.main.async {
@@ -44,19 +50,21 @@ class ToiletDataManager: ObservableObject {
             self.errorMessage = nil
         }
         
-        // 切換到背景執行緒進行耗時操作
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // 切換到高優先級背景執行緒進行載入
+        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
             guard let self = self else { return }
             
-            // 1. 嘗試載入預處理過的優化資料
+            // 1. 嘗試載入預處理過的優化資料（這是首選路徑）
             if let optimizedUrl = Bundle.main.url(forResource: self.optimizedJsonFileName, withExtension: "json") {
                 do {
-                    print("發現優化資料，開始載入...")
-                    let data = try Data(contentsOf: optimizedUrl)
+                    // 使用 memory mapping 加速讀取
+                    let data = try Data(contentsOf: optimizedUrl, options: .mappedIfSafe)
                     let decoder = JSONDecoder()
+                    
+                    // 直接解碼為結構，不做額外群組運算
                     let loadedLocations = try decoder.decode([ToiletLocation].self, from: data)
                     
-                    // 從地點還原出所有廁所列表 (如果需要的話)
+                    // 使用 lazy map 延遲生成 toilets 陣列 (或者在背景一次性生成)
                     let loadedToilets = loadedLocations.flatMap { $0.allToilets }
                     
                     DispatchQueue.main.async {
@@ -64,14 +72,16 @@ class ToiletDataManager: ObservableObject {
                         self.filteredLocations = loadedLocations
                         self.toilets = loadedToilets
                         self.isLoading = false
-                        print("成功從優化檔載入 \(loadedLocations.count) 個地點，\(loadedToilets.count) 筆公廁資料")
+                        print("✅ [快速載入] 成功從優化檔載入 \(loadedLocations.count) 個地點")
                     }
                     return // 成功載入優化檔，直接結束
                 } catch {
-                    print("載入優化資料失敗，嘗試載入原始資料: \(error)")
-                    // 失敗則繼續往下嘗試載入原始資料
+                    print("⚠️ 載入優化資料失敗: \(error)")
                 }
             }
+            
+            // 2. 載入原始資料（Fallback，效能較差，應避免在生產環境發生）
+            // ... (後續 fallback 代碼)
             
             // 2. 載入原始資料（Fallback）
             guard let url = Bundle.main.url(forResource: self.jsonFileName, withExtension: "json") else {
