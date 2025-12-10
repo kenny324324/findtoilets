@@ -191,7 +191,23 @@ class ReviewManager: ObservableObject {
                     print("✅ [ReviewManager] 評論同步至雲端成功")
                 case .failure(let error):
                     print("❌ [ReviewManager] 評論同步失敗: \(error.localizedDescription)")
-                    self?.errorMessage = "評論上傳失敗: \(error.localizedDescription)\n請確認網路連線，或稍後再試。"
+                    // 將技術錯誤轉換為友善訊息
+                    let friendlyMessage: String
+                    let errorDescription = error.localizedDescription.lowercased()
+                    
+                    if errorDescription.contains("network") || errorDescription.contains("internet") {
+                        friendlyMessage = "網路連線不穩定，請稍後再試"
+                    } else if errorDescription.contains("not authenticated") || errorDescription.contains("icloud") {
+                        friendlyMessage = "請確認已登入 iCloud 帳號"
+                    } else if errorDescription.contains("permission") || errorDescription.contains("denied") {
+                        friendlyMessage = "權限不足，請稍後再試"
+                    } else if errorDescription.contains("quota") || errorDescription.contains("limit") {
+                        friendlyMessage = "儲存空間已滿，請聯繫客服"
+                    } else {
+                        friendlyMessage = "評論上傳失敗，請稍後再試"
+                    }
+                    
+                    self?.errorMessage = friendlyMessage
                 }
             }
         }
@@ -855,7 +871,7 @@ struct LocationDetailView: View {
             set: { if !$0 { reviewManager.errorMessage = nil } }
         )) {
             Alert(
-                title: Text("錯誤"),
+                title: Text("無法上傳評論"),
                 message: Text(reviewManager.errorMessage ?? ""),
                 dismissButton: .default(Text("好"))
             )
