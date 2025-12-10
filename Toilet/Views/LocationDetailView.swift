@@ -112,6 +112,7 @@ class ReviewManager: ObservableObject {
     @Published var reviews: [UUID: [LocationReport]] = [:] // locationId -> reports
     @Published var isLoading = false
     @Published var existingReview: LocationReport? = nil // 使用者的現有評論
+    @Published var errorMessage: String? = nil // 錯誤訊息
     
     func loadReviews(for locationId: UUID) {
         isLoading = true
@@ -183,13 +184,15 @@ class ReviewManager: ObservableObject {
         existingReview = report
         
         // 2. 背景上傳到 CloudKit
-        CloudKitManager.shared.saveReview(report: report) { result in
-            switch result {
-            case .success:
-                print("✅ [ReviewManager] 評論同步至雲端成功")
-            case .failure(let error):
-                print("❌ [ReviewManager] 評論同步失敗: \(error.localizedDescription)")
-                // 這裡可以做失敗處理，例如顯示驚嘆號，但為了體驗先不打斷使用者
+        CloudKitManager.shared.saveReview(report: report) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    print("✅ [ReviewManager] 評論同步至雲端成功")
+                case .failure(let error):
+                    print("❌ [ReviewManager] 評論同步失敗: \(error.localizedDescription)")
+                    self?.errorMessage = "評論上傳失敗: \(error.localizedDescription)\n請確認網路連線，或稍後再試。"
+                }
             }
         }
     }
@@ -846,6 +849,16 @@ struct LocationDetailView: View {
                     }
                 }
             }
+        }
+        .alert(isPresented: Binding<Bool>(
+            get: { reviewManager.errorMessage != nil },
+            set: { if !$0 { reviewManager.errorMessage = nil } }
+        )) {
+            Alert(
+                title: Text("錯誤"),
+                message: Text(reviewManager.errorMessage ?? ""),
+                dismissButton: .default(Text("好"))
+            )
         }
     }
     
