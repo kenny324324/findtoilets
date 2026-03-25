@@ -14,108 +14,191 @@ class ToiletDataManager: ObservableObject {
     @Published var toilets: [ToiletInfo] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
-    
-    // 新增：群組後的地點資料
+
+    // 群組後的地點資料
     @Published var locations: [ToiletLocation] = []
     @Published var filteredLocations: [ToiletLocation] = []
     @Published var selectedLocation: ToiletLocation?
     @Published var selectedToilet: ToiletInfo?
-    
+
+    // API 更新狀態
+    @Published var isUpdating = false
+    @Published var lastUpdated: Date?
+
     private let jsonFileName = "toilet"
     private let optimizedJsonFileName = "toilet_locations"
     private var coordinateCache: [String: (latitude: Double, longitude: Double)] = [:]
-    
+
     // 區域載入緩存（提升性能）
     private var regionCache: [String: [ToiletInfo]] = [:]
     private let cacheQueue = DispatchQueue(label: "com.country.toilet.cache")
-    
-    init() {
-        // init 時嘗試載入（如果還沒載入）
-        // 在背景執行緒中啟動，以免阻塞初始化過程
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            // 注意：這裡只做預處理或輕量檢查，實際載入邏輯還是由 loadToiletData 控制
-            // 但我們可以稍微偷跑一下
-            // 如果我們想在 init 就載入，要小心與 View 的生命週期
-        }
-    }
-    
-    // 載入公廁資料
+
+    private let apiService = ToiletAPIService()
+    private let cacheManager = ToiletCacheManager()
+
+    init() {}
+
+    // MARK: - 載入公廁資料（三層策略：快取 → bundled JSON → API）
+
     func loadToiletData() {
-        // 如果正在載入或已經有資料，不要重複執行
         guard !isLoading && toilets.isEmpty else { return }
-        
-        // 在主執行緒設置載入狀態
+
         DispatchQueue.main.async {
             self.isLoading = true
             self.errorMessage = nil
         }
-        
-        // 切換到高優先級背景執行緒進行載入
+
         DispatchQueue.global(qos: .userInteractive).async { [weak self] in
             guard let self = self else { return }
-            
-            // 1. 嘗試載入預處理過的優化資料（這是首選路徑）
-            if let optimizedUrl = Bundle.main.url(forResource: self.optimizedJsonFileName, withExtension: "json") {
-                do {
-                    // 使用 memory mapping 加速讀取
-                    let data = try Data(contentsOf: optimizedUrl, options: .mappedIfSafe)
-                    let decoder = JSONDecoder()
-                    
-                    // 直接解碼為結構，不做額外群組運算
-                    let loadedLocations = try decoder.decode([ToiletLocation].self, from: data)
-                    
-                    // 使用 lazy map 延遲生成 toilets 陣列 (或者在背景一次性生成)
-                    let loadedToilets = loadedLocations.flatMap { $0.allToilets }
-                    
-                    DispatchQueue.main.async {
-                        self.locations = loadedLocations
-                        self.filteredLocations = loadedLocations
-                        self.toilets = loadedToilets
-                        self.isLoading = false
-                        print("✅ [快速載入] 成功從優化檔載入 \(loadedLocations.count) 個地點")
-                    }
-                    return // 成功載入優化檔，直接結束
-                } catch {
-                    print("⚠️ 載入優化資料失敗: \(error)")
-                }
-            }
-            
-            // 2. 載入原始資料（Fallback，效能較差，應避免在生產環境發生）
-            // ... (後續 fallback 代碼)
-            
-            // 2. 載入原始資料（Fallback）
-            guard let url = Bundle.main.url(forResource: self.jsonFileName, withExtension: "json") else {
-                DispatchQueue.main.async {
-                    self.errorMessage = LocalizedStrings.fileNotFound.localized
-                    self.isLoading = false
+
+            // 1. 嘗試從本地快取載入
+            if self.loadFromCache() {
+                // 快取載入成功，檢查是否過期
+                if self.cacheManager.isCacheStale() {
+                    print("📡 快取已過期，背景更新中...")
+                    self.performBackgroundUpdate()
                 }
                 return
             }
-            
+
+            // 2. 快取不存在，從 bundled JSON 載入（立即顯示）
+            self.loadFromBundle()
+
+            // 3. 背景從 API 拉取最新資料
+            self.performBackgroundUpdate()
+        }
+    }
+
+    /// 手動觸發 API 更新（例如下拉更新）
+    func refreshFromAPI() {
+        guard !isUpdating else { return }
+        performBackgroundUpdate()
+    }
+
+    // MARK: - Private 載入方法
+
+    /// 從本地快取載入，成功回傳 true
+    private func loadFromCache() -> Bool {
+        guard let cachedLocations = cacheManager.loadCachedLocations() else {
+            return false
+        }
+
+        let cachedToilets = cachedLocations.flatMap { $0.allToilets }
+        let updatedDate = cacheManager.lastUpdatedDate()
+
+        DispatchQueue.main.async {
+            self.locations = cachedLocations
+            self.filteredLocations = cachedLocations
+            self.toilets = cachedToilets
+            self.lastUpdated = updatedDate
+            self.isLoading = false
+            print("✅ [快取載入] 成功載入 \(cachedLocations.count) 個地點（快取時間：\(updatedDate?.description ?? "未知")）")
+        }
+        return true
+    }
+
+    /// 從 bundled JSON 載入（fallback）
+    private func loadFromBundle() {
+        // 優先嘗試預處理過的優化資料
+        if let optimizedUrl = Bundle.main.url(forResource: optimizedJsonFileName, withExtension: "json") {
             do {
-                let data = try Data(contentsOf: url)
-                let decoder = JSONDecoder()
-                let loadedToilets = try decoder.decode([ToiletInfo].self, from: data)
-                
-                // 耗時操作：群組廁所資料為地點
-                print("開始計算地點群組...")
-                let loadedLocations = ToiletLocation.createFromToilets(loadedToilets)
-                
+                let data = try Data(contentsOf: optimizedUrl, options: .mappedIfSafe)
+                let loadedLocations = try JSONDecoder().decode([ToiletLocation].self, from: data)
+                let loadedToilets = loadedLocations.flatMap { $0.allToilets }
+
                 DispatchQueue.main.async {
-                    self.toilets = loadedToilets
                     self.locations = loadedLocations
                     self.filteredLocations = loadedLocations
+                    self.toilets = loadedToilets
                     self.isLoading = false
-                    
-                    print("成功載入原始資料：\(loadedToilets.count) 筆公廁")
-                    print("即時群組後：\(loadedLocations.count) 個地點")
+                    print("✅ [Bundle 載入] 成功從優化檔載入 \(loadedLocations.count) 個地點")
+                }
+                return
+            } catch {
+                print("⚠️ 載入優化資料失敗: \(error)")
+            }
+        }
+
+        // Fallback: 原始資料
+        guard let url = Bundle.main.url(forResource: jsonFileName, withExtension: "json") else {
+            DispatchQueue.main.async {
+                self.errorMessage = LocalizedStrings.fileNotFound.localized
+                self.isLoading = false
+            }
+            return
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let loadedToilets = try JSONDecoder().decode([ToiletInfo].self, from: data)
+            let loadedLocations = ToiletLocation.createFromToilets(loadedToilets)
+
+            DispatchQueue.main.async {
+                self.toilets = loadedToilets
+                self.locations = loadedLocations
+                self.filteredLocations = loadedLocations
+                self.isLoading = false
+                print("✅ [Bundle Fallback] 成功載入 \(loadedToilets.count) 筆公廁")
+            }
+        } catch {
+            DispatchQueue.main.async {
+                self.errorMessage = "\(LocalizedStrings.dataLoadFailed.localized): \(error.localizedDescription)"
+                self.isLoading = false
+            }
+        }
+    }
+
+    /// 背景從 API 拉取最新資料並存快取
+    private func performBackgroundUpdate() {
+        DispatchQueue.main.async {
+            self.isUpdating = true
+        }
+
+        Task {
+            do {
+                print("📡 開始從 API 拉取公廁資料...")
+                let fetchedToilets = try await apiService.fetchAllToilets { count in
+                    print("📡 已拉取 \(count) 筆...")
+                }
+
+                guard !fetchedToilets.isEmpty else {
+                    print("⚠️ API 回傳空資料，保留現有資料")
+                    await MainActor.run { self.isUpdating = false }
+                    return
+                }
+
+                // 背景執行分組（耗時操作）
+                print("🔄 開始分組 \(fetchedToilets.count) 筆資料...")
+                let groupedLocations = ToiletLocation.createFromToilets(fetchedToilets)
+
+                // 儲存快取
+                do {
+                    try cacheManager.saveData(toilets: fetchedToilets, locations: groupedLocations)
+                } catch {
+                    print("⚠️ 快取儲存失敗: \(error)")
+                }
+
+                // 更新 UI
+                await MainActor.run {
+                    self.toilets = fetchedToilets
+                    self.locations = groupedLocations
+                    self.filteredLocations = groupedLocations
+                    self.lastUpdated = Date()
+                    self.isUpdating = false
+
+                    // 清除座標和區域快取（資料已更新）
+                    self.cacheQueue.async {
+                        self.coordinateCache.removeAll()
+                        self.regionCache.removeAll()
+                    }
+
+                    print("✅ [API 更新] 成功更新 \(groupedLocations.count) 個地點（\(fetchedToilets.count) 筆廁所）")
                 }
             } catch {
-                DispatchQueue.main.async {
-                    self.errorMessage = "\(LocalizedStrings.dataLoadFailed.localized): \(error.localizedDescription)"
-                    self.isLoading = false
+                print("❌ API 更新失敗: \(error)")
+                await MainActor.run {
+                    self.isUpdating = false
                 }
-                print("載入公廁資料錯誤: \(error)")
             }
         }
     }

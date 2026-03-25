@@ -27,7 +27,27 @@ struct ToiletInfo: Codable, Identifiable, Equatable {
     let type: String            // 廁所類型（女廁所、男廁所等）
     let exec: String            // 執行單位
     let diaper: String          // 是否有尿布台（"0"=無，"1"=有）
-    
+
+    init(county: String, city: String, village: String, number: String,
+         name: String, address: String, administration: String,
+         latitude: String, longitude: String, grade: String,
+         type2: String, type: String, exec: String, diaper: String) {
+        self.county = county
+        self.city = city
+        self.village = village
+        self.number = number
+        self.name = name
+        self.address = address
+        self.administration = administration
+        self.latitude = latitude
+        self.longitude = longitude
+        self.grade = grade
+        self.type2 = type2
+        self.type = type
+        self.exec = exec
+        self.diaper = diaper
+    }
+
     // 計算屬性：將字串轉換為 Double 座標
     var latitudeDouble: Double {
         return Double(latitude) ?? 0.0

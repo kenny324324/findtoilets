@@ -98,7 +98,20 @@ struct ToiletLocation: Identifiable, Codable, Equatable {
     var placeType: String {
         return allToilets.first?.type2 ?? ""
     }
-    
+
+    // 計算屬性：推估是否可能 24 小時開放
+    var isLikelyOpen24H: Bool {
+        let type = placeType
+        // 交通場站、公園通常 24H
+        if type.contains("交通") || type.contains("公園") {
+            return true
+        }
+        // 名稱包含 24H 相關關鍵字
+        let lowercaseName = name.lowercased()
+        let keywords24H = ["加油站", "便利商店", "7-11", "7-eleven", "全家", "萊爾富", "ok mart", "okmart", "hi-life"]
+        return keywords24H.contains { lowercaseName.contains($0.lowercased()) }
+    }
+
     // 計算屬性：該層廁所的平均評分（基於等級）
     func averageRating(for floorName: String) -> Double {
         let floorToilets = toiletsByFloor.first { $0.floorName == floorName }?.toilets ?? []

@@ -486,4 +486,63 @@ class CloudKitManager: ObservableObject {
             }
         }
     }
+
+    // MARK: - 營業時間快取
+
+    /// 從 CloudKit 讀取營業時間快取
+    func fetchBusinessHours(locationId: String, completion: @escaping (BusinessHoursInfo?) -> Void) {
+        let recordID = CKRecord.ID(recordName: "hours_\(locationId)", zoneID: CKRecordZone.default().zoneID)
+
+        publicDB.fetch(withRecordID: recordID) { record, error in
+            guard let record = record,
+                  let hoursJSON = record["hoursJSON"] as? String,
+                  let placeId = record["placeId"] as? String,
+                  let fetchedAt = record["fetchedAt"] as? Date,
+                  let jsonData = hoursJSON.data(using: .utf8),
+                  let weekdayHours = try? JSONDecoder().decode([DayHours].self, from: jsonData)
+            else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+
+            let info = BusinessHoursInfo(
+                locationId: locationId,
+                placeId: placeId,
+                weekdayHours: weekdayHours,
+                fetchedAt: fetchedAt
+            )
+
+            DispatchQueue.main.async { completion(info) }
+        }
+    }
+
+    /// 將營業時間存入 CloudKit（所有裝置共享）
+    func saveBusinessHours(locationId: String, info: BusinessHoursInfo) {
+        let recordID = CKRecord.ID(recordName: "hours_\(locationId)", zoneID: CKRecordZone.default().zoneID)
+
+        // 先查是否已存在
+        publicDB.fetch(withRecordID: recordID) { [weak self] existingRecord, _ in
+            guard let self = self else { return }
+
+            let record = existingRecord ?? CKRecord(recordType: "BusinessHours", recordID: recordID)
+
+            record["locationId"] = locationId
+            record["placeId"] = info.placeId
+
+            if let jsonData = try? JSONEncoder().encode(info.weekdayHours),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                record["hoursJSON"] = jsonString
+            }
+
+            record["fetchedAt"] = info.fetchedAt as CKRecordValue
+
+            self.publicDB.save(record) { _, error in
+                if let error = error {
+                    print("⚠️ [CloudKit] 儲存營業時間失敗: \(error)")
+                } else {
+                    print("✅ [CloudKit] 營業時間已儲存: \(locationId)")
+                }
+            }
+        }
+    }
 }

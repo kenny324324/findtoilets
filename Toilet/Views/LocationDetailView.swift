@@ -223,6 +223,7 @@ struct LocationDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var locationManager = LocationManager()
     @StateObject private var reviewManager = ReviewManager() // 引入評論管理器
+    @StateObject private var businessHoursManager = BusinessHoursManager()
     @State private var walkingTimeMinutes: Int = 0
     @State private var isCalculatingDistance: Bool = false
     @State private var showingMapOptions = false
@@ -653,8 +654,48 @@ struct LocationDetailView: View {
                         
                         Divider()
                             .padding(.horizontal, 20)
-                        
-                        
+
+                        // 營業時間
+                        HStack(alignment: .center) {
+                            Text("營業時間")
+                                .font(.calloutRounded())
+                                .foregroundColor(.secondary)
+                                .frame(minWidth: 80, alignment: .leading)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            if businessHoursManager.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else if let hours = businessHoursManager.businessHours {
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(hours.isOpenNow ? Color.green : Color.red)
+                                        .frame(width: 8, height: 8)
+                                    Text(hours.isOpenNow ? "營業中" : "已關閉")
+                                        .font(.bodyRounded(.semibold))
+                                        .foregroundColor(hours.isOpenNow ? .green : .red)
+                                    Text(hours.todayHoursText)
+                                        .font(.bodyRounded())
+                                        .foregroundColor(.primary)
+                                }
+                            } else if location.isLikelyOpen24H {
+                                Text("可能 24H 開放")
+                                    .font(.bodyRounded())
+                                    .foregroundColor(.green)
+                            } else {
+                                Text("可能有營業時間限制")
+                                    .font(.bodyRounded())
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+
+                        Divider()
+                            .padding(.horizontal, 20)
+
                         // 尿布台
                         HStack(alignment: .center) {
                             Text(LocalizedStrings.diaperStation.localized)
@@ -789,6 +830,7 @@ struct LocationDetailView: View {
             calculateWalkingTime()
             reviewManager.loadReviews(for: location.id) // 下載該地點的評論
             reviewManager.checkExistingReview(for: location.id) { } // 檢查使用者是否已留言
+            businessHoursManager.loadHours(for: location) // 查詢營業時間
         }
         .onChange(of: locationManager.location) { _ in
             if isCalculatingDistance {

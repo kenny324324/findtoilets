@@ -691,6 +691,7 @@ struct NearbyListView: View {
     
     // 智慧篩選標籤定義
     private let filterTags: [(name: String, icon: String, keywords: [String])] = [
+        ("24H", "clock.fill", []),  // 特殊處理：用 isLikelyOpen24H 篩選
         ("車站", "tram.fill", ["車站", "捷運", "MRT", "火車", "高鐵", "客運", "轉運"]),
         ("百貨公司", "bag.fill", ["百貨", "商場", "購物中心", "MALL"]),
         ("餐廳", "fork.knife", ["餐廳", "麥當勞", "肯德基", "星巴克", "cafe", "咖啡"]),
@@ -706,14 +707,21 @@ struct NearbyListView: View {
         // 1. 先進行快速篩選（標籤）
         var filtered = nearbyLocationsWithDistance
         
-        if let tag = selectedFilterTag, 
+        if let tag = selectedFilterTag,
            let filterInfo = filterTags.first(where: { $0.name == tag }) {
-            let keywords = filterInfo.keywords
-            filtered = filtered.filter { (location, _) in
-                let name = location.name.lowercased()
-                let type = location.placeType.lowercased()
-                return keywords.contains { keyword in 
-                    name.contains(keyword.lowercased()) || type.contains(keyword.lowercased())
+            if tag == "24H" {
+                // 24H 標籤：用 isLikelyOpen24H 篩選
+                filtered = filtered.filter { (location, _) in
+                    location.isLikelyOpen24H
+                }
+            } else {
+                let keywords = filterInfo.keywords
+                filtered = filtered.filter { (location, _) in
+                    let name = location.name.lowercased()
+                    let type = location.placeType.lowercased()
+                    return keywords.contains { keyword in
+                        name.contains(keyword.lowercased()) || type.contains(keyword.lowercased())
+                    }
                 }
             }
         }
