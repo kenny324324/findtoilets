@@ -40,6 +40,7 @@ struct ContentView: View {
     @State private var shouldEnableClustering: Bool = true // 根據地圖縮放動態啟用標記聚合
     @State private var isFirstLaunch: Bool = true // 控制初始啟動狀態
     @State private var animationCompleted: Bool = false // 動畫是否完成
+    @State private var isWaitingForFirstLocation: Bool = false // 等待首次授權後的定位
 
     var body: some View {
         ZStack {
@@ -64,7 +65,7 @@ struct ContentView: View {
                     VStack(spacing: 0) {
                         navigationBarGradientOverlay
                             .frame(maxWidth: .infinity)
-                            .frame(height: 180)
+                            .frame(height: 120)
                             .ignoresSafeArea(edges: .top)
                         Spacer()
                     }
@@ -138,7 +139,7 @@ struct ContentView: View {
                         selectedLocationFromMap: $selectedLocation
                     )
                     .environmentObject(premiumManager)
-                    .presentationDetents([.height(200), .medium, .large], selection: $selectedDetent)
+                    .presentationDetents([.height(120), .medium, .large], selection: $selectedDetent)
                     .presentationBackgroundInteraction(.enabled)
                     .presentationDragIndicator(.hidden)
                     .presentationCompactAdaptation(.sheet)
@@ -149,8 +150,8 @@ struct ContentView: View {
                         } else {
                             ZStack {
                                 Color.clear
-                                    .background(.ultraThinMaterial)
-                                Color.white.opacity(0.8)
+                                    .background(.thinMaterial)
+                                Color.white.opacity(0.55)
                             }
                         }
                     }
@@ -188,37 +189,30 @@ struct ContentView: View {
             
             // 讓 LoadingView 內部來控制完成時機，這裡不做額外計時器
         }
-        // 移除 onChange，因為由 LoadingView 的 callback 來控制
+        // 首次授權後，freshLocation 更新時跳轉到使用者位置
+        .onChange(of: locationManager.freshLocation) { newLocation in
+            if newLocation != nil && isWaitingForFirstLocation {
+                isWaitingForFirstLocation = false
+                jumpToUserLocation()
+            }
+        }
         .animation(.easeInOut(duration: 0.8), value: isFirstLaunch)
         .animation(.easeInOut(duration: 0.8), value: animationCompleted)
     }
     
     // 自動定位到目前位置（app 啟動時）
     private func autoLocateCurrentPosition() {
-        // 檢查權限狀態
         switch locationManager.authorizationStatus {
         case .notDetermined:
-            // 首次使用，請求權限
+            // 首次使用，請求權限（授權後由 onChange(freshLocation) 處理跳轉）
+            isWaitingForFirstLocation = true
             locationManager.requestLocationPermission()
         case .denied, .restricted:
-            // 權限被拒絕，不進行定位
             break
         case .authorizedWhenInUse, .authorizedAlways:
-            // 有權限，使用快速定位
-            locationManager.getQuickLocation()
-            
-            // 監聽位置更新並更新地圖（僅在 app 啟動時）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                if let location = self.locationManager.location {
-                    self.jumpToUserLocation()
-                } else {
-                    // 如果1秒後還沒有位置，再等2秒
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        if let location = self.locationManager.location {
-                            self.jumpToUserLocation()
-                        }
-                    }
-                }
+            // 有權限，使用 callback 在定位成功後跳轉
+            locationManager.getQuickLocation { [self] _ in
+                self.jumpToUserLocation()
             }
         @unknown default:
             break
@@ -227,23 +221,16 @@ struct ContentView: View {
     
     // 處理定位按鈕點擊
     private func handleLocationButtonTap() {
-        // 檢查權限狀態
         switch locationManager.authorizationStatus {
         case .notDetermined:
-            // 首次使用，請求權限
+            isWaitingForFirstLocation = true
             locationManager.requestLocationPermission()
         case .denied, .restricted:
-            // 權限被拒絕，顯示提示
             break
         case .authorizedWhenInUse, .authorizedAlways:
-            // 有權限，使用快速定位
-            locationManager.getQuickLocation()
-            
-            // 監聽位置更新，只在定位按鈕觸發時跳回
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                if let location = self.locationManager.location {
-                    self.jumpToUserLocation()
-                }
+            // 使用 callback 確保跳轉到新鮮的 GPS 位置
+            locationManager.getQuickLocation { [self] _ in
+                self.jumpToUserLocation()
             }
         @unknown default:
             break
@@ -350,7 +337,7 @@ private extension ContentView {
                 .glassEffect(.regular.interactive())
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.4), lineWidth: 1.2)
                         .blendMode(.overlay)
                 )
         } else {
@@ -358,9 +345,10 @@ private extension ContentView {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.4), lineWidth: 1.2)
                         .blendMode(.overlay)
                 )
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
         }
     }
     
@@ -372,8 +360,8 @@ private extension ContentView {
                 LinearGradient(
                     colors: [
                         Color.white,
-                        Color.white.opacity(0.5),
-                        Color.white.opacity(0.15),
+                        Color.white.opacity(0.7),
+                        Color.white.opacity(0.2),
                         Color.white.opacity(0)
                     ],
                     startPoint: .top,

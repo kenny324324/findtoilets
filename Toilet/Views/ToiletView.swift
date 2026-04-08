@@ -275,7 +275,7 @@ struct ToiletView: View {
             }
             .sheet(item: $selectedToiletForDetail) { toilet in
                 ToiletDetailView(toilet: toilet, toiletDetailDetent: $toiletDetailDetent)
-                    .presentationDetents([.height(200), .medium, .large], selection: $toiletDetailDetent)
+                    .presentationDetents([.height(120), .medium, .large], selection: $toiletDetailDetent)
                     .presentationBackgroundInteraction(.enabled)
                     .presentationDragIndicator(.hidden)
                     .presentationCompactAdaptation(.sheet)
@@ -286,8 +286,8 @@ struct ToiletView: View {
                         } else {
                             ZStack {
                                 Color.clear
-                                    .background(.ultraThinMaterial)
-                                Color.white.opacity(0.8)
+                                    .background(.thinMaterial)
+                                Color.white.opacity(0.55)
                             }
                         }
                     }
@@ -298,7 +298,7 @@ struct ToiletView: View {
             }
             .sheet(item: $selectedLocationForDetail) { location in
                 LocationDetailView(location: location, locationDetailDetent: $locationDetailDetent)
-                    .presentationDetents([.height(200), .medium, .large], selection: $locationDetailDetent)
+                    .presentationDetents([.height(120), .medium, .large], selection: $locationDetailDetent)
                     .presentationBackgroundInteraction(.enabled)
                     .presentationDragIndicator(.hidden)
                     .presentationCompactAdaptation(.sheet)
@@ -309,8 +309,8 @@ struct ToiletView: View {
                         } else {
                             ZStack {
                                 Color.clear
-                                    .background(.ultraThinMaterial)
-                                Color.white.opacity(0.8)
+                                    .background(.thinMaterial)
+                                Color.white.opacity(0.55)
                             }
                         }
                     }
@@ -1287,8 +1287,8 @@ struct SettingsView: View {
             } else {
                 ZStack {
                     Color.clear
-                        .background(.ultraThinMaterial)
-                    Color.white.opacity(0.8)
+                        .background(.thinMaterial)
+                    Color.white.opacity(0.55)
                 }
             }
         }

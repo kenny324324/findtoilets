@@ -6,9 +6,12 @@ class LocationManager: NSObject, ObservableObject {
     private let locationManager = CLLocationManager()
     
     @Published var location: CLLocation?
+    @Published var freshLocation: CLLocation? // 只從 GPS 回調設定，不從快取載入
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published var isLocating: Bool = false
     @Published var errorMessage: String?
+
+    private var pendingLocationCallback: ((CLLocation) -> Void)?
     
     override init() {
         super.init()
@@ -105,38 +108,32 @@ class LocationManager: NSObject, ObservableObject {
         }
     }
     
-    // 新增：快速定位方法（使用更低的精度）
-    func getQuickLocation() {
+    // 快速定位方法（使用 callback 取代 timer 輪詢）
+    func getQuickLocation(completion: ((CLLocation) -> Void)? = nil) {
         guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
             print("權限不足，請求權限")
             requestLocationPermission()
             return
         }
-        
+
         print("開始快速定位流程")
         isLocating = true
         errorMessage = nil
-        
-        // 暫時降低精度以提升速度
-        let originalAccuracy = locationManager.desiredAccuracy
-        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
-        
-        // 嘗試快速定位
+        freshLocation = nil // 清除舊的 fresh location
+        pendingLocationCallback = completion
+
+        // 固定使用 hundredMeters，不切換精度（避免 race condition）
+        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         locationManager.requestLocation()
-        
-        // 1秒後恢復原始精度設定
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.locationManager.desiredAccuracy = originalAccuracy
-        }
-        
-        // 快速定位超時保護
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            if self.isLocating {
-                print("快速定位超時，停止定位")
-                self.isLocating = false
-                self.errorMessage = LocalizedStrings.locationTimeout.localized
-                self.locationManager.stopUpdatingLocation()
-            }
+
+        // 超時保護（5 秒）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            guard let self = self, self.isLocating else { return }
+            print("快速定位超時，停止定位")
+            self.isLocating = false
+            self.errorMessage = LocalizedStrings.locationTimeout.localized
+            self.locationManager.stopUpdatingLocation()
+            self.pendingLocationCallback = nil
         }
     }
 }
@@ -144,21 +141,39 @@ class LocationManager: NSObject, ObservableObject {
 // MARK: - CLLocationManagerDelegate
 extension LocationManager: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        
+        guard let newLocation = locations.last else { return }
+
+        // 驗證：拒絕超過 10 秒的舊位置
+        let age = -newLocation.timestamp.timeIntervalSinceNow
+        guard age < 10.0 else {
+            print("拒絕過期位置（age: \(age)s）")
+            return
+        }
+
+        // 驗證：拒絕精度太差的結果（> 1000m）
+        guard newLocation.horizontalAccuracy >= 0 && newLocation.horizontalAccuracy < 1000 else {
+            print("拒絕不準確位置（accuracy: \(newLocation.horizontalAccuracy)m）")
+            return
+        }
+
         DispatchQueue.main.async {
-            self.location = location
+            self.location = newLocation
+            self.freshLocation = newLocation
             self.isLocating = false
             self.errorMessage = nil
-            
+
             // 儲存最後已知位置
-            UserDefaults.standard.set(location.coordinate.latitude, forKey: "LastLat")
-            UserDefaults.standard.set(location.coordinate.longitude, forKey: "LastLon")
-            
+            UserDefaults.standard.set(newLocation.coordinate.latitude, forKey: "LastLat")
+            UserDefaults.standard.set(newLocation.coordinate.longitude, forKey: "LastLon")
+
             // 停止持續定位
             self.locationManager.stopUpdatingLocation()
-            
-            print("定位成功：緯度 \(location.coordinate.latitude), 經度 \(location.coordinate.longitude)")
+
+            // 觸發 callback
+            self.pendingLocationCallback?(newLocation)
+            self.pendingLocationCallback = nil
+
+            print("定位成功：\(newLocation.coordinate.latitude), \(newLocation.coordinate.longitude), 精度: \(newLocation.horizontalAccuracy)m")
         }
     }
     
@@ -187,8 +202,10 @@ extension LocationManager: CLLocationManagerDelegate {
                 self.isLocating = false
             } else if status == .authorizedWhenInUse || status == .authorizedAlways {
                 print("權限已獲得，開始定位")
-                // 權限獲得後，立即開始定位
-                self.getQuickLocation()
+                // 權限獲得後，立即開始定位（避免重複請求）
+                if !self.isLocating {
+                    self.getQuickLocation()
+                }
             }
         }
     }

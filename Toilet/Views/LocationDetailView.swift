@@ -775,14 +775,14 @@ struct LocationDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
-            .scrollDisabled(locationDetailDetent == .height(200)) // 最小高度時禁用滾動
+            .scrollDisabled(locationDetailDetent == .height(120)) // 最小高度時禁用滾動
             .navigationTitle(location.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
                         // 如果當前是最小高度，返回時調整到中高度
-                        if locationDetailDetent == .height(200) {
+                        if locationDetailDetent == .height(120) {
                             locationDetailDetent = .medium
                         }
                         dismiss()
@@ -902,8 +902,8 @@ struct LocationDetailView: View {
                 } else {
                     ZStack {
                         Color.clear
-                            .background(.ultraThinMaterial)
-                        Color.white.opacity(0.8)
+                            .background(.thinMaterial)
+                        Color.white.opacity(0.55)
                     }
                 }
             }

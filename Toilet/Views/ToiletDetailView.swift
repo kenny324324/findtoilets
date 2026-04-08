@@ -278,7 +278,7 @@ struct ToiletDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
-            .scrollDisabled(toiletDetailDetent == .height(200)) // 最小高度時禁用滾動
+            .scrollDisabled(toiletDetailDetent == .height(120)) // 最小高度時禁用滾動
         }
         .background(Color.clear)
         .onAppear {

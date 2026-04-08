@@ -83,7 +83,7 @@ struct HomeSheetView: View {
                             }
                             .listStyle(.plain)
                             .scrollContentBackground(.hidden)
-                            .scrollDisabled(selectedDetent == .height(200)) // 最小高度時禁用滾動
+                            .scrollDisabled(selectedDetent == .height(120)) // 最小高度時禁用滾動
                         }
                     }
                     .transition(.opacity)
@@ -209,7 +209,7 @@ struct HomeSheetView: View {
                                 Spacer(minLength: 20) // 底部留白
                             }
                         }
-                        .scrollDisabled(selectedDetent == .height(200)) // 最小高度時禁用滾動
+                        .scrollDisabled(selectedDetent == .height(120)) // 最小高度時禁用滾動
                         .scrollIndicators(.hidden)
                         .transition(.opacity)
                     } else {
@@ -287,7 +287,7 @@ struct HomeSheetView: View {
                                 Spacer(minLength: 20)
                             }
                         }
-                        .scrollDisabled(selectedDetent == .height(200))
+                        .scrollDisabled(selectedDetent == .height(120))
                         .scrollIndicators(.hidden)
                         .transition(.opacity)
                     }
@@ -384,7 +384,7 @@ struct HomeSheetView: View {
                 preloadedNearbyLocationsWithDistance: cachedNearbyLocationsWithDistance
             )
             .environmentObject(premiumManager)
-            .presentationDetents([.height(200), .medium, .large], selection: $nearbyListDetent)
+            .presentationDetents([.height(120), .medium, .large], selection: $nearbyListDetent)
             .presentationBackgroundInteraction(.enabled)
             .presentationDragIndicator(.hidden)
             .presentationCompactAdaptation(.sheet)
@@ -395,8 +395,8 @@ struct HomeSheetView: View {
                 } else {
                     ZStack {
                         Color.clear
-                            .background(.ultraThinMaterial)
-                        Color.white.opacity(0.8)
+                            .background(.thinMaterial)
+                        Color.white.opacity(0.55)
                     }
                 }
             }
@@ -411,7 +411,7 @@ struct HomeSheetView: View {
         // 廁所詳情 Sheet
         .sheet(item: $selectedToiletForDetail) { toilet in
             ToiletDetailView(toilet: toilet, toiletDetailDetent: $toiletDetailDetent)
-                .presentationDetents([.height(200), .medium, .large], selection: $toiletDetailDetent)
+                .presentationDetents([.height(120), .medium, .large], selection: $toiletDetailDetent)
                 .presentationBackgroundInteraction(.enabled)
                 .presentationDragIndicator(.hidden)
                 .presentationCompactAdaptation(.sheet)
@@ -422,8 +422,8 @@ struct HomeSheetView: View {
                     } else {
                         ZStack {
                             Color.clear
-                                .background(.ultraThinMaterial)
-                            Color.white.opacity(0.8)
+                                .background(.thinMaterial)
+                            Color.white.opacity(0.55)
                         }
                     }
                 }
@@ -434,7 +434,7 @@ struct HomeSheetView: View {
         // 地點詳情 Sheet
         .sheet(item: $selectedLocationForDetail) { location in
             LocationDetailView(location: location, locationDetailDetent: $locationDetailDetent)
-                .presentationDetents([.height(200), .medium, .large], selection: $locationDetailDetent)
+                .presentationDetents([.height(120), .medium, .large], selection: $locationDetailDetent)
                 .presentationBackgroundInteraction(.enabled)
                 .presentationDragIndicator(.hidden)
                 .presentationCompactAdaptation(.sheet)
@@ -445,8 +445,8 @@ struct HomeSheetView: View {
                     } else {
                         ZStack {
                             Color.clear
-                                .background(.ultraThinMaterial)
-                            Color.white.opacity(0.8)
+                                .background(.thinMaterial)
+                            Color.white.opacity(0.55)
                         }
                     }
                 }
@@ -808,15 +808,15 @@ struct NearbyListView: View {
                     } else {
                         ZStack {
                             Color.clear
-                                .background(.ultraThinMaterial)
-                            Color.white.opacity(0.8)
+                                .background(.thinMaterial)
+                            Color.white.opacity(0.55)
                         }
                     }
                 }
         }
         .sheet(item: $selectedToiletForDetail) { toilet in
             ToiletDetailView(toilet: toilet, toiletDetailDetent: $toiletDetailDetent)
-                .presentationDetents([.height(200), .medium, .large], selection: $toiletDetailDetent)
+                .presentationDetents([.height(120), .medium, .large], selection: $toiletDetailDetent)
                 .presentationBackgroundInteraction(.enabled)
                 .presentationDragIndicator(.hidden)
                 .presentationCompactAdaptation(.sheet)
@@ -827,8 +827,8 @@ struct NearbyListView: View {
                     } else {
                         ZStack {
                             Color.clear
-                                .background(.ultraThinMaterial)
-                            Color.white.opacity(0.8)
+                                .background(.thinMaterial)
+                            Color.white.opacity(0.55)
                         }
                     }
                 }
@@ -839,7 +839,7 @@ struct NearbyListView: View {
         }
         .sheet(item: $selectedLocationForDetail) { location in
             LocationDetailView(location: location, locationDetailDetent: $locationDetailDetent)
-                .presentationDetents([.height(200), .medium, .large], selection: $locationDetailDetent)
+                .presentationDetents([.height(120), .medium, .large], selection: $locationDetailDetent)
                 .presentationBackgroundInteraction(.enabled)
                 .presentationDragIndicator(.hidden)
                 .presentationCompactAdaptation(.sheet)
@@ -850,8 +850,8 @@ struct NearbyListView: View {
                     } else {
                         ZStack {
                             Color.clear
-                                .background(.ultraThinMaterial)
-                            Color.white.opacity(0.8)
+                                .background(.thinMaterial)
+                            Color.white.opacity(0.55)
                         }
                     }
                 }
@@ -1165,7 +1165,7 @@ struct NearbyListView: View {
                                             }
                                         }
                                     }
-        .scrollDisabled(parentDetent == .height(200))
+        .scrollDisabled(parentDetent == .height(120))
                                     .background(Color.clear)
                                     .onAppear {
                                         mapToilets = nearbyLocations.flatMap { $0.allToilets }

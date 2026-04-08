@@ -45,7 +45,7 @@ struct MapView: UIViewRepresentable {
         mapView.userTrackingMode = .none
         
         // 調整地圖邊距，讓 Apple logo 顯示得比 sheet 更高
-        mapView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 200, right: 0)
+        mapView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 120, right: 0)
         
         // 設置縮放限制
         setupZoomLimits(for: mapView)
@@ -63,20 +63,17 @@ struct MapView: UIViewRepresentable {
         // 使用 MKMapView 的內建縮放限制
         mapView.cameraZoomRange = MKMapView.CameraZoomRange(
             minCenterCoordinateDistance: 150, // 最小距離 150m（允許聚合展開）
-            maxCenterCoordinateDistance: 15000  // 最大距離 15km（避免放得太大）
+            maxCenterCoordinateDistance: 500000  // 最大距離 500km，允許查看全台灣及離島
         )
-        
+
         // 設置地圖的滾動和縮放行為
         mapView.isScrollEnabled = true
         mapView.isZoomEnabled = true
         mapView.isPitchEnabled = false
         mapView.isRotateEnabled = false
-        
-        // 設置地圖的滾動邊界
-        mapView.cameraBoundary = MKMapView.CameraBoundary(coordinateRegion: MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 25.0, longitude: 121.5),
-            span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)
-        ))
+
+        // 不限制地圖滾動邊界，讓使用者自由瀏覽
+        mapView.cameraBoundary = nil
     }
 
     func updateUIView(_ uiView: MKMapView, context: Context) {
